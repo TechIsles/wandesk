@@ -1,0 +1,1046 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wandesk 助理</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-workspace: #0a0e14;
+      --bg-sidebar: #0f141d;
+      --bg-main: #131924;
+      --bg-card: rgba(26, 35, 50, 0.45);
+      --bg-term: #0a0d13;
+      --bg-input: #171f2e;
+      --border-subtle: rgba(140, 170, 210, 0.08);
+      --border-focus: rgba(0, 229, 255, 0.4);
+      --border-terminal: rgba(0, 229, 255, 0.12);
+      --text-primary: #e6edf5;
+      --text-secondary: #94a3b8;
+      --text-muted: #5c6b84;
+      --accent-neon: #00f0ff;
+      --accent-neon-dim: rgba(0, 240, 255, 0.12);
+      --accent-green: #00ffaa;
+      --accent-amber: #ffb703;
+      --font-ui: -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      --font-mono: "SF Mono", Monaco, Menlo, Consolas, "Courier New", monospace;
+    }
+
+    body {
+      font-family: var(--font-ui);
+      background-color: var(--bg-workspace);
+      color: var(--text-primary);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      user-select: none;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* 布局框架 */
+    .app-window {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      background: var(--bg-main);
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* 侧边栏 */
+    .sidebar {
+      width: 270px;
+      min-width: 270px;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      z-index: 10;
+    }
+
+    .window-controls {
+      height: 48px;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 8px;
+    }
+    .traffic-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: #252e3d;
+    }
+
+    .new-chat-container {
+      padding: 0 14px 14px 14px;
+    }
+    .btn-new-chat {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      height: 36px;
+      border-radius: 8px;
+      background: linear-gradient(180deg, rgba(0, 240, 255, 0.08) 0%, rgba(0, 240, 255, 0.02) 100%);
+      border: 1px solid rgba(0, 240, 255, 0.25);
+      color: var(--accent-neon);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .btn-new-chat:hover {
+      background: rgba(0, 240, 255, 0.15);
+      border-color: var(--accent-neon);
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.18);
+    }
+
+    .session-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 8px;
+      list-style: none;
+    }
+    .session-list::-webkit-scrollbar {
+      width: 4px;
+    }
+    .session-list::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 2px;
+    }
+
+    .session-item {
+      display: flex;
+      align-items: center;
+      padding: 9px 12px;
+      margin-bottom: 3px;
+      border-radius: 7px;
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-size: 13px;
+      transition: all 0.15s ease;
+      position: relative;
+    }
+    .session-item:hover {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-primary);
+    }
+    .session-item.active {
+      background: rgba(0, 240, 255, 0.06);
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+    .session-item.active::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 6px;
+      bottom: 6px;
+      width: 3px;
+      border-radius: 0 2px 2px 0;
+      background: var(--accent-neon);
+      box-shadow: 0 0 8px var(--accent-neon);
+    }
+    .session-title {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-right: 6px;
+    }
+    .status-indicator-active {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .pulse-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-neon);
+      box-shadow: 0 0 8px var(--accent-neon);
+      animation: pulse 1.4s infinite ease-in-out;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.3; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.15); }
+    }
+
+    .sidebar-footer {
+      padding: 12px 14px;
+      border-top: 1px solid var(--border-subtle);
+    }
+    .btn-settings {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 13px;
+      cursor: pointer;
+      padding: 8px 10px;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+    .btn-settings:hover {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-secondary);
+    }
+
+    /* 主视窗 */
+    .main-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      position: relative;
+      background: radial-gradient(circle at 50% 0%, #151e2e 0%, var(--bg-main) 60%);
+    }
+
+    .top-header {
+      height: 48px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      flex-shrink: 0;
+    }
+    .header-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .header-title {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: 0.2px;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: rgba(0, 240, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.2);
+      color: var(--accent-neon);
+      font-family: var(--font-mono);
+    }
+    .status-badge.idle {
+      background: rgba(148, 163, 184, 0.08);
+      border-color: rgba(148, 163, 184, 0.2);
+      color: var(--text-secondary);
+    }
+    .status-badge.idle .pulse-dot {
+      background: var(--text-secondary);
+      box-shadow: none;
+      animation: none;
+    }
+
+    /* 对话信息流 */
+    .messages-viewport {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 0 16px;
+      display: flex;
+      flex-direction: column;
+      scroll-behavior: smooth;
+    }
+    .messages-viewport::-webkit-scrollbar {
+      width: 5px;
+    }
+    .messages-viewport::-webkit-scrollbar-thumb {
+      background: rgba(140, 170, 210, 0.1);
+      border-radius: 3px;
+    }
+
+    .messages-container {
+      max-width: 860px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 0 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    /* 用户条目 */
+    .message-row-user {
+      display: flex;
+      justify-content: flex-end;
+      align-self: flex-end;
+      max-width: 80%;
+    }
+    .user-bubble {
+      background: #1e283b;
+      border: 1px solid rgba(140, 170, 210, 0.14);
+      color: var(--text-primary);
+      padding: 10px 16px;
+      border-radius: 14px 14px 3px 14px;
+      font-size: 14px;
+      line-height: 1.55;
+      letter-spacing: 0.1px;
+      user-select: text;
+    }
+
+    /* 助理回合 */
+    .message-row-assistant {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      user-select: text;
+    }
+    .assistant-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .agent-avatar {
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      background: rgba(0, 240, 255, 0.15);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent-neon);
+      font-size: 10px;
+      font-family: var(--font-mono);
+      font-weight: 700;
+    }
+
+    /* 过程流：轻量极简时间轴折叠区 */
+    .pipeline-wrapper {
+      margin: 4px 0 16px 0;
+      border-radius: 8px;
+      background: rgba(10, 15, 24, 0.4);
+      border: 1px solid rgba(140, 170, 210, 0.08);
+      overflow: hidden;
+      transition: all 0.2s ease;
+    }
+    .pipeline-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 12px;
+      background: rgba(255, 255, 255, 0.02);
+      cursor: pointer;
+      user-select: none;
+    }
+    .pipeline-header:hover {
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .pipeline-summary {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .pipeline-toggle-icon {
+      color: var(--text-muted);
+      transition: transform 0.2s ease;
+      display: flex;
+      align-items: center;
+    }
+    .pipeline-wrapper.expanded .pipeline-toggle-icon {
+      transform: rotate(180deg);
+    }
+    .pipeline-content {
+      display: none;
+      padding: 10px 14px 14px 14px;
+      border-top: 1px solid rgba(140, 170, 210, 0.06);
+    }
+    .pipeline-wrapper.expanded .pipeline-content {
+      display: block;
+    }
+
+    /* 时间线 */
+    .timeline {
+      position: relative;
+      padding-left: 14px;
+    }
+    .timeline::before {
+      content: "";
+      position: absolute;
+      left: 3px;
+      top: 6px;
+      bottom: 6px;
+      width: 1px;
+      background: rgba(140, 170, 210, 0.15);
+    }
+    .timeline-node {
+      position: relative;
+      margin-bottom: 12px;
+    }
+    .timeline-node:last-child {
+      margin-bottom: 0;
+    }
+    .timeline-node::before {
+      content: "";
+      position: absolute;
+      left: -14px;
+      top: 6px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #253347;
+      border: 1px solid rgba(0, 240, 255, 0.4);
+    }
+    .timeline-node.exec::before {
+      background: var(--accent-neon);
+      box-shadow: 0 0 6px var(--accent-neon);
+    }
+    .timeline-title {
+      font-size: 11.5px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+    .thought-text {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      font-style: italic;
+    }
+
+    /* 终端命令微件 */
+    .terminal-box {
+      margin-top: 6px;
+      background: var(--bg-term);
+      border: 1px solid var(--border-terminal);
+      border-radius: 5px;
+      overflow: hidden;
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+    .terminal-cmd-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      background: rgba(0, 240, 255, 0.03);
+      color: var(--text-primary);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    }
+    .terminal-prompt {
+      color: var(--accent-neon);
+      font-weight: bold;
+    }
+    .terminal-output {
+      padding: 6px 10px;
+      color: #8da4c4;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* 助理正文 */
+    .assistant-prose {
+      font-size: 14.5px;
+      line-height: 1.7;
+      color: var(--text-primary);
+      letter-spacing: 0.1px;
+    }
+    .assistant-prose p {
+      margin-bottom: 10px;
+    }
+    .assistant-prose p:last-child {
+      margin-bottom: 0;
+    }
+    .assistant-prose ul {
+      margin: 8px 0 10px 18px;
+    }
+    .assistant-prose li {
+      margin-bottom: 5px;
+      color: #cbd5e1;
+    }
+    .assistant-prose code {
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      background: rgba(255, 255, 255, 0.06);
+      padding: 2px 5px;
+      border-radius: 4px;
+      color: var(--accent-neon);
+    }
+
+    /* 模拟打字光标 */
+    .typing-cursor {
+      display: inline-block;
+      width: 7px;
+      height: 15px;
+      vertical-align: -2px;
+      background-color: var(--accent-neon);
+      box-shadow: 0 0 6px var(--accent-neon);
+      margin-left: 2px;
+      animation: blink 0.9s infinite;
+    }
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0; }
+    }
+
+    /* 底部交互输入台 */
+    .input-dock {
+      padding: 12px 24px 18px;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .input-card {
+      max-width: 860px;
+      margin: 0 auto;
+      background: var(--bg-input);
+      border: 1px solid rgba(140, 170, 210, 0.14);
+      border-radius: 12px;
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: all 0.2s ease;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+    .input-card:focus-within {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 1px var(--border-focus), 0 8px 28px rgba(0, 240, 255, 0.08);
+    }
+    .input-meta-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-muted);
+      padding: 2px 4px;
+      font-family: var(--font-mono);
+    }
+    .input-meta-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .meta-tag {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(255, 255, 255, 0.03);
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .input-main-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+    }
+    .prompt-textarea {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      resize: none;
+      color: var(--text-primary);
+      font-size: 14px;
+      line-height: 1.5;
+      font-family: var(--font-ui);
+      max-height: 140px;
+      min-height: 24px;
+      padding: 4px 2px;
+    }
+    .prompt-textarea::placeholder {
+      color: var(--text-muted);
+    }
+    
+    .action-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s ease;
+      flex-shrink: 0;
+    }
+    .btn-send {
+      background: var(--accent-neon);
+      color: #050b14;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+    }
+    .btn-send:hover {
+      background: #33f3ff;
+      box-shadow: 0 0 14px rgba(0, 240, 255, 0.5);
+    }
+    .btn-stop {
+      background: rgba(255, 75, 75, 0.15);
+      border: 1px solid rgba(255, 75, 75, 0.4);
+      color: #ff5555;
+    }
+    .btn-stop:hover {
+      background: rgba(255, 75, 75, 0.25);
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-window">
+  <!-- 左侧会话侧边栏 -->
+  <aside class="sidebar">
+    <div class="window-controls">
+      <div class="traffic-dot"></div>
+      <div class="traffic-dot"></div>
+      <div class="traffic-dot"></div>
+    </div>
+
+    <div class="new-chat-container">
+      <button class="btn-new-chat" id="newChatBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        <span>新对话</span>
+      </button>
+    </div>
+
+    <ul class="session-list">
+      <li class="session-item active" id="currentSessionItem">
+        <span class="session-title">检查网络信息</span>
+        <span class="status-indicator-active" id="sidebarRunningDot">
+          <span class="pulse-dot"></span>
+        </span>
+      </li>
+      <li class="session-item">
+        <span class="session-title">构建静态前端资源</span>
+      </li>
+      <li class="session-item">
+        <span class="session-title">整理工作目录日志</span>
+      </li>
+      <li class="session-item">
+        <span class="session-title">检查端口占用状态</span>
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <button class="btn-settings">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        <span>设置</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- 中间工作流面板 -->
+  <main class="main-panel">
+    <!-- 顶部状态条 -->
+    <header class="top-header">
+      <div class="header-info">
+        <span class="header-title">检查网络信息</span>
+        <div class="status-badge" id="headerStatusBadge">
+          <span class="pulse-dot"></span>
+          <span id="headerStatusText">运行中</span>
+        </div>
+      </div>
+      <div style="font-size: 12px; color: var(--text-muted); font-family: var(--font-mono);">
+        ID #a94f8b
+      </div>
+    </header>
+
+    <!-- 消息对话体 -->
+    <div class="messages-viewport" id="messagesViewport">
+      <div class="messages-container" id="messagesContainer">
+        
+        <!-- 回合 1 -->
+        <div class="message-row-user">
+          <div class="user-bubble">你好</div>
+        </div>
+
+        <div class="message-row-assistant">
+          <div class="assistant-header">
+            <div class="agent-avatar">W</div>
+            <span>助理</span>
+          </div>
+          <div class="assistant-prose">
+            <p>你好。有什么需要处理的，直接说。</p>
+          </div>
+        </div>
+
+        <!-- 回合 2 (固定测试内容) -->
+        <div class="message-row-user">
+          <div class="user-bubble">检查网络信息</div>
+        </div>
+
+        <div class="message-row-assistant" id="currentAgentTurn">
+          <div class="assistant-header">
+            <div class="agent-avatar">W</div>
+            <span>助理</span>
+          </div>
+
+          <!-- 过程管道 (可折叠) -->
+          <div class="pipeline-wrapper expanded" id="turnPipeline">
+            <div class="pipeline-header" onclick="togglePipeline(this)">
+              <div class="pipeline-summary">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                <span id="pipelineSummaryText">已执行 4 条系统命令</span>
+              </div>
+              <div class="pipeline-toggle-icon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </div>
+            </div>
+
+            <div class="pipeline-content">
+              <div class="timeline">
+                <!-- 节点 1 -->
+                <div class="timeline-node">
+                  <div class="timeline-title">思考</div>
+                  <div class="thought-text">用户要看网络信息。先确认系统类型，再分别查接口、网关、DNS、代理和外网连通性。</div>
+                </div>
+
+                <!-- 节点 2 -->
+                <div class="timeline-node exec">
+                  <div class="timeline-title">系统命令 (2)</div>
+                  
+                  <div class="terminal-box">
+                    <div class="terminal-cmd-row">
+                      <span class="terminal-prompt">$</span>
+                      <span>uname -a</span>
+                    </div>
+                    <div class="terminal-output">Darwin woodchange-MacBook-Air 25.6.0 arm64</div>
+                  </div>
+
+                  <div class="terminal-box">
+                    <div class="terminal-cmd-row">
+                      <span class="terminal-prompt">$</span>
+                      <span>ifconfig | grep "inet "</span>
+                    </div>
+                    <div class="terminal-output">inet 192.168.50.23 netmask 0xffffff00</div>
+                  </div>
+                </div>
+
+                <!-- 节点 3 -->
+                <div class="timeline-node">
+                  <div class="timeline-title">思考</div>
+                  <div class="thought-text">macOS 环境。继续查网关、DNS、代理和连通性。</div>
+                </div>
+
+                <!-- 节点 4 -->
+                <div class="timeline-node exec">
+                  <div class="timeline-title">系统命令 (2)</div>
+
+                  <div class="terminal-box">
+                    <div class="terminal-cmd-row">
+                      <span class="terminal-prompt">$</span>
+                      <span>netstat -rn | grep default</span>
+                    </div>
+                    <div class="terminal-output">default 192.168.50.1 UGScg en0</div>
+                  </div>
+
+                  <div class="terminal-box">
+                    <div class="terminal-cmd-row">
+                      <span class="terminal-prompt">$</span>
+                      <span>curl -sI https://www.apple.com | head -1</span>
+                    </div>
+                    <div class="terminal-output">HTTP/2 200</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 正文流容器 -->
+          <div class="assistant-prose" id="streamProseContainer"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 底部控制与输入栏 -->
+    <div class="input-dock">
+      <div class="input-card">
+        <div class="input-meta-bar">
+          <div class="input-meta-left">
+            <span class="meta-tag">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+              ~/wandesk
+            </span>
+            <span class="meta-tag">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+              wandesk-agent
+            </span>
+          </div>
+          <span>Return 发送 / Shift + Return 换行</span>
+        </div>
+
+        <div class="input-main-row">
+          <textarea 
+            id="promptInput" 
+            class="prompt-textarea" 
+            rows="1" 
+            placeholder="请输入指令或需要查询的内容..."></textarea>
+          
+          <button id="actionBtn" class="action-btn btn-stop" title="停止">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"></rect></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  // 状态变量
+  let isRunning = true;
+  let streamTimer = null;
+  let initialTimeout = null;
+
+  const messagesViewport = document.getElementById('messagesViewport');
+  const messagesContainer = document.getElementById('messagesContainer');
+  const streamProseContainer = document.getElementById('streamProseContainer');
+  const actionBtn = document.getElementById('actionBtn');
+  const headerStatusBadge = document.getElementById('headerStatusBadge');
+  const headerStatusText = document.getElementById('headerStatusText');
+  const sidebarRunningDot = document.getElementById('sidebarRunningDot');
+  const promptInput = document.getElementById('promptInput');
+
+  // 固定输出文本
+  const initialText = "网络状况正常，摘要如下：\n\n- 接口 en0，内网地址 192.168.50.23，网关 192.168.50.1\n- DNS 解析到 198.18.0.2，说明本机代理处于 TUN 模式，流量全部经代理\n- 外网连通性正常，apple.com 返回 HTTP 200\n\n如需查看完整的路由表或代理配置，告诉我。";
+
+  // 格式化文本转 HTML
+  function renderMarkdownLike(str) {
+    const lines = str.split('\n');
+    let html = '';
+    let inList = false;
+
+    lines.forEach(line => {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('- ')) {
+        if (!inList) {
+          html += '<ul>';
+          inList = true;
+        }
+        const itemContent = trimmed.slice(2).replace(/`([^`]+)`/g, '<code>$1</code>');
+        html += `<li>${itemContent}</li>`;
+      } else {
+        if (inList) {
+          html += '</ul>';
+          inList = false;
+        }
+        if (trimmed.length > 0) {
+          const paragraph = trimmed.replace(/`([^`]+)`/g, '<code>$1</code>');
+          html += `<p>${paragraph}</p>`;
+        }
+      }
+    });
+    if (inList) html += '</ul>';
+    return html;
+  }
+
+  // 折叠开关
+  function togglePipeline(headerEl) {
+    const wrapper = headerEl.closest('.pipeline-wrapper');
+    wrapper.classList.toggle('expanded');
+  }
+
+  // 滚动到底部
+  function scrollToBottom() {
+    messagesViewport.scrollTop = messagesViewport.scrollHeight;
+  }
+
+  // 切换运行/空闲状态 UI
+  function setRunningState(running) {
+    isRunning = running;
+    if (running) {
+      headerStatusBadge.classList.remove('idle');
+      headerStatusText.textContent = "运行中";
+      sidebarRunningDot.style.display = "flex";
+      actionBtn.className = "action-btn btn-stop";
+      actionBtn.title = "停止";
+      actionBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"></rect></svg>';
+    } else {
+      headerStatusBadge.classList.add('idle');
+      headerStatusText.textContent = "就绪";
+      sidebarRunningDot.style.display = "none";
+      actionBtn.className = "action-btn btn-send";
+      actionBtn.title = "发送";
+      actionBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>';
+    }
+  }
+
+  // 流式输出控制器
+  function streamText(targetContainer, fullText, speed = 25, onComplete = null) {
+    let index = 0;
+    targetContainer.innerHTML = '<span class="typing-cursor"></span>';
+    
+    streamTimer = setInterval(() => {
+      index += 2;
+      const current = fullText.slice(0, index);
+      targetContainer.innerHTML = renderMarkdownLike(current) + '<span class="typing-cursor"></span>';
+      scrollToBottom();
+
+      if (index >= fullText.length) {
+        clearInterval(streamTimer);
+        streamTimer = null;
+        targetContainer.innerHTML = renderMarkdownLike(fullText);
+        if (onComplete) onComplete();
+      }
+    }, speed);
+  }
+
+  // 终止操作
+  function abortCurrent() {
+    if (initialTimeout) clearTimeout(initialTimeout);
+    if (streamTimer) clearInterval(streamTimer);
+    
+    // 清除光标
+    const cursor = document.querySelector('.typing-cursor');
+    if (cursor) cursor.remove();
+
+    setRunningState(false);
+  }
+
+  // 页面加载时的自动化流
+  window.addEventListener('DOMContentLoaded', () => {
+    setRunningState(true);
+    
+    // 2 秒后开始流式输出固定回合正文
+    initialTimeout = setTimeout(() => {
+      streamText(streamProseContainer, initialText, 22, () => {
+        setRunningState(false);
+        // 输出完成后收起过程
+        const firstPipe = document.getElementById('turnPipeline');
+        if (firstPipe) firstPipe.classList.remove('expanded');
+      });
+    }, 2000);
+  });
+
+  // 输入框自适应高度
+  promptInput.addEventListener('input', () => {
+    promptInput.style.height = 'auto';
+    promptInput.style.height = Math.min(promptInput.scrollHeight, 140) + 'px';
+  });
+
+  // 回车键拦截
+  promptInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  });
+
+  // 按钮交互
+  actionBtn.addEventListener('click', () => {
+    if (isRunning) {
+      abortCurrent();
+    } else {
+      handleSend();
+    }
+  });
+
+  // 发送新回合
+  function handleSend() {
+    const text = promptInput.value.trim();
+    if (!text || isRunning) return;
+
+    promptInput.value = '';
+    promptInput.style.height = 'auto';
+
+    // 追加用户消息
+    const userRow = document.createElement('div');
+    userRow.className = 'message-row-user';
+    userRow.innerHTML = `<div class="user-bubble">${escapeHtml(text)}</div>`;
+    messagesContainer.appendChild(userRow);
+
+    // 开始 Agent 处理
+    setRunningState(true);
+
+    const agentRow = document.createElement('div');
+    agentRow.className = 'message-row-assistant';
+    const turnId = 'turn_' + Date.now();
+
+    agentRow.innerHTML = `
+      <div class="assistant-header">
+        <div class="agent-avatar">W</div>
+        <span>助理</span>
+      </div>
+      <div class="pipeline-wrapper expanded" id="${turnId}_pipe">
+        <div class="pipeline-header" onclick="togglePipeline(this)">
+          <div class="pipeline-summary">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+            <span>已执行 1 条系统命令</span>
+          </div>
+          <div class="pipeline-toggle-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </div>
+        </div>
+        <div class="pipeline-content">
+          <div class="timeline">
+            <div class="timeline-node">
+              <div class="timeline-title">思考</div>
+              <div class="thought-text">读取指定工作区配置与文件清单，准备返回目录快照。</div>
+            </div>
+            <div class="timeline-node exec">
+              <div class="timeline-title">系统命令</div>
+              <div class="terminal-box">
+                <div class="terminal-cmd-row">
+                  <span class="terminal-prompt">$</span>
+                  <span>ls -la</span>
+                </div>
+                <div class="terminal-output">drwxr-xr-x  8 woodchange  staff   256 May 14 09:12 .
+drwxr-xr-x  4 woodchange  staff   128 May 10 14:00 ..
+-rw-r--r--  1 woodchange  staff   412 May 14 09:10 config.json
+-rw-r--r--  1 woodchange  staff  2048 May 14 09:11 agent.db</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="assistant-prose" id="${turnId}_prose"></div>
+    `;
+
+    messagesContainer.appendChild(agentRow);
+    scrollToBottom();
+
+    // 模拟思考和输出
+    initialTimeout = setTimeout(() => {
+      const proseEl = document.getElementById(`${turnId}_prose`);
+      const pipeEl = document.getElementById(`${turnId}_pipe`);
+      const reply = `已完成相应指令处理。工作目录 \`~/wandesk\` 下包含配置文件 \`config.json\` 及运行库数据库文件。\n\n如需对文件进行具体读写或执行其他任务，请下发操作。`;
+
+      streamText(proseEl, reply, 20, () => {
+        setRunningState(false);
+        if (pipeEl) pipeEl.classList.remove('expanded');
+      });
+    }, 1200);
+  }
+
+  // 辅助转义
+  function escapeHtml(str) {
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  // 新建对话
+  document.getElementById('newChatBtn').addEventListener('click', () => {
+    if (isRunning) abortCurrent();
+    promptInput.value = '';
+    promptInput.focus();
+  });
+</script>
+</body>
+</html>

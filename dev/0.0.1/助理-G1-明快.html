@@ -1,0 +1,1207 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wandesk 助理</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Segoe UI", "Microsoft YaHei", sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      
+      --primary: #4F46E5;
+      --primary-hover: #4338CA;
+      --primary-subtle: #EEF2FF;
+      --accent: #0284C7;
+      --accent-subtle: #E0F2FE;
+      --warning: #D97706;
+      --warning-subtle: #FEF3C7;
+      
+      --bg-window: #F8FAFC;
+      --bg-sidebar: #F1F5F9;
+      --bg-chat: #FFFFFF;
+      --bg-card: #FFFFFF;
+      --bg-code: #0F172A;
+      
+      --text-main: #0F172A;
+      --text-muted: #64748B;
+      --text-faint: #94A3B8;
+      --border-light: rgba(15, 23, 42, 0.08);
+      --border-focus: rgba(79, 70, 229, 0.35);
+
+      --radius-xl: 20px;
+      --radius-lg: 14px;
+      --radius-md: 10px;
+      --radius-sm: 6px;
+
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+      --shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.08), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+      --shadow-lg: 0 12px 28px -4px rgba(15, 23, 42, 0.1);
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: var(--font-sans);
+      background-color: #E2E8F0;
+      color: var(--text-main);
+      -webkit-font-smoothing: antialiased;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Window Container */
+    .app-window {
+      width: 100vw;
+      height: 100vh;
+      max-width: 1340px;
+      max-height: 880px;
+      background: var(--bg-window);
+      border-radius: var(--radius-xl);
+      box-shadow: 0 24px 48px -12px rgba(15, 23, 42, 0.22), 0 0 0 1px rgba(15, 23, 42, 0.08);
+      display: flex;
+      overflow: hidden;
+      position: relative;
+    }
+
+    @media (max-width: 1340px) or (max-height: 880px) {
+      .app-window {
+        max-width: 100%;
+        max-height: 100%;
+        border-radius: 0;
+      }
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 280px;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border-light);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .window-controls {
+      height: 48px;
+      display: flex;
+      align-items: center;
+      padding: 0 18px;
+      gap: 8px;
+    }
+
+    .control-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+    .dot-close { background: #FF5F56; border: 1px solid #E0443E; }
+    .dot-min { background: #FFBD2E; border: 1px solid #DEA123; }
+    .dot-max { background: #27C93F; border: 1px solid #1AAB29; }
+
+    .sidebar-header {
+      padding: 6px 16px 14px;
+    }
+
+    .btn-new-chat {
+      width: 100%;
+      height: 40px;
+      background: var(--primary);
+      color: #FFFFFF;
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(79, 70, 229, 0.28);
+      transition: all 0.15s ease;
+    }
+
+    .btn-new-chat:hover {
+      background: var(--primary-hover);
+      transform: translateY(-1px);
+    }
+
+    .session-list-wrapper {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 10px;
+    }
+
+    .session-group-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-faint);
+      padding: 10px 10px 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .session-item {
+      padding: 10px 12px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      cursor: pointer;
+      margin-bottom: 2px;
+      transition: all 0.15s ease;
+      color: var(--text-muted);
+      font-size: 13.5px;
+      text-decoration: none;
+      user-select: none;
+    }
+
+    .session-item:hover {
+      background: rgba(255, 255, 255, 0.7);
+      color: var(--text-main);
+    }
+
+    .session-item.active {
+      background: #FFFFFF;
+      color: var(--text-main);
+      font-weight: 600;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .session-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      flex: 1;
+    }
+
+    .running-badge {
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 12px;
+      background: var(--primary-subtle);
+      color: var(--primary);
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .running-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--primary);
+      border-radius: 50%;
+      animation: pulseGlow 1.5s infinite ease-in-out;
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 0.3; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.15); }
+    }
+
+    .sidebar-footer {
+      padding: 14px 16px;
+      border-top: 1px solid var(--border-light);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .btn-settings {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 6px 8px;
+      border-radius: var(--radius-sm);
+      transition: all 0.15s;
+    }
+
+    .btn-settings:hover {
+      background: rgba(255, 255, 255, 0.8);
+      color: var(--text-main);
+    }
+
+    /* Main Area */
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-chat);
+      min-width: 0;
+      position: relative;
+    }
+
+    /* Header */
+    .chat-header {
+      height: 52px;
+      padding: 0 24px;
+      border-bottom: 1px solid var(--border-light);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(12px);
+    }
+
+    .header-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .chat-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .status-pill {
+      font-size: 12px;
+      padding: 3px 8px;
+      border-radius: 20px;
+      background: #F1F5F9;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-pill.running {
+      background: var(--accent-subtle);
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-icon-subtle {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+      font-size: 12.5px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: background 0.15s;
+    }
+    .btn-icon-subtle:hover {
+      background: #F1F5F9;
+      color: var(--text-main);
+    }
+
+    /* Message Stream */
+    .message-stream {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 32px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      scroll-behavior: smooth;
+    }
+
+    .message-row {
+      display: flex;
+      flex-direction: column;
+      max-width: 860px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    /* User Row */
+    .message-row.user {
+      align-items: flex-end;
+    }
+
+    .user-bubble {
+      background: #F1F5F9;
+      color: var(--text-main);
+      padding: 10px 16px;
+      border-radius: 18px 18px 4px 18px;
+      font-size: 14.5px;
+      line-height: 1.55;
+      max-width: 78%;
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--border-light);
+      word-break: break-word;
+    }
+
+    /* Assistant Row */
+    .message-row.assistant {
+      align-items: flex-start;
+    }
+
+    .assistant-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .agent-avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, var(--primary), #818CF8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+    }
+
+    .agent-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    /* Process Trace - Collapsed Flow (Capsules) */
+    .process-timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      width: 100%;
+      margin-bottom: 12px;
+      padding-left: 2px;
+    }
+
+    .process-step {
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+      background: #FAFAFC;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      overflow: hidden;
+      max-width: 680px;
+    }
+
+    .process-step:hover {
+      border-color: rgba(79, 70, 229, 0.2);
+      background: #F8FAFC;
+    }
+
+    .process-header {
+      padding: 6px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .process-title-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12.5px;
+      color: var(--text-muted);
+    }
+
+    .step-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 10px;
+    }
+
+    .step-tag.thinking {
+      background: var(--warning-subtle);
+      color: var(--warning);
+    }
+
+    .step-tag.exec {
+      background: var(--accent-subtle);
+      color: var(--accent);
+    }
+
+    .process-brief {
+      color: var(--text-muted);
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 440px;
+    }
+
+    .chevron-icon {
+      transition: transform 0.2s ease;
+      color: var(--text-faint);
+    }
+
+    .process-step.expanded .chevron-icon {
+      transform: rotate(180deg);
+    }
+
+    .process-body {
+      display: none;
+      padding: 10px 14px 12px;
+      border-top: 1px solid var(--border-light);
+      background: #FFFFFF;
+      font-size: 12.5px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .process-step.expanded .process-body {
+      display: block;
+    }
+
+    /* Terminal Blocks inside execution step */
+    .cmd-block {
+      margin-top: 6px;
+      background: var(--bg-code);
+      color: #E2E8F0;
+      border-radius: var(--radius-sm);
+      padding: 8px 12px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      line-height: 1.45;
+    }
+
+    .cmd-line {
+      color: #38BDF8;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+    .cmd-prompt {
+      color: #94A3B8;
+      user-select: none;
+    }
+
+    .cmd-output {
+      color: #94A3B8;
+      margin-top: 3px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* Assistant Result Text (No heavy cards!) */
+    .assistant-body {
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text-main);
+      padding: 4px 2px;
+      max-width: 100%;
+      word-break: break-word;
+    }
+
+    .assistant-body p {
+      margin-bottom: 12px;
+    }
+    .assistant-body p:last-child {
+      margin-bottom: 0;
+    }
+
+    .assistant-body ul {
+      margin: 8px 0 14px 20px;
+      padding-left: 0;
+    }
+
+    .assistant-body li {
+      margin-bottom: 6px;
+    }
+
+    .streaming-cursor {
+      display: inline-block;
+      width: 7px;
+      height: 15px;
+      background: var(--primary);
+      margin-left: 3px;
+      vertical-align: -2px;
+      border-radius: 1px;
+      animation: blink 0.9s infinite ease;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 0; }
+      50% { opacity: 1; }
+    }
+
+    /* Processing pulse state bar */
+    .running-hint-bar {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: #F8FAFC;
+      border: 1px solid rgba(79, 70, 229, 0.15);
+      border-radius: 20px;
+      font-size: 12.5px;
+      color: var(--primary);
+      font-weight: 500;
+      margin-bottom: 10px;
+    }
+
+    .running-spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid var(--primary-subtle);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Input Dock */
+    .input-dock {
+      padding: 0 32px 24px;
+      flex-shrink: 0;
+    }
+
+    .input-container {
+      max-width: 860px;
+      margin: 0 auto;
+      background: #FFFFFF;
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      transition: border-color 0.2s, box-shadow 0.2s;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .input-container:focus-within {
+      border-color: var(--primary);
+      box-shadow: 0 8px 24px -4px rgba(79, 70, 229, 0.15), 0 0 0 1px var(--primary);
+    }
+
+    .input-meta-bar {
+      padding: 8px 14px 4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(15, 23, 42, 0.04);
+      background: #FAFBFD;
+    }
+
+    .meta-tags {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .meta-chip {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      background: #F1F5F9;
+      padding: 3px 8px;
+      border-radius: var(--radius-sm);
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-family: var(--font-mono);
+    }
+
+    .meta-chip.model-chip {
+      font-family: var(--font-sans);
+      background: var(--primary-subtle);
+      color: var(--primary);
+      font-weight: 500;
+    }
+
+    .textarea-wrap {
+      padding: 10px 14px;
+      display: flex;
+      align-items: flex-end;
+      gap: 12px;
+    }
+
+    .chat-textarea {
+      flex: 1;
+      border: none;
+      outline: none;
+      resize: none;
+      font-family: var(--font-sans);
+      font-size: 14.5px;
+      line-height: 1.5;
+      color: var(--text-main);
+      max-height: 160px;
+      min-height: 24px;
+      background: transparent;
+    }
+
+    .chat-textarea::placeholder {
+      color: var(--text-faint);
+    }
+
+    .btn-action-send {
+      width: 34px;
+      height: 34px;
+      border-radius: var(--radius-md);
+      border: none;
+      background: var(--primary);
+      color: #FFFFFF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      flex-shrink: 0;
+    }
+
+    .btn-action-send:hover {
+      background: var(--primary-hover);
+      transform: scale(1.04);
+    }
+
+    .btn-action-send.stop-mode {
+      background: #EF4444;
+    }
+
+    .btn-action-send.stop-mode:hover {
+      background: #DC2626;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-window">
+  <!-- Left Sidebar -->
+  <aside class="sidebar">
+    <div class="window-controls">
+      <div class="control-dot dot-close"></div>
+      <div class="control-dot dot-min"></div>
+      <div class="control-dot dot-max"></div>
+    </div>
+
+    <div class="sidebar-header">
+      <button class="btn-new-chat" id="newChatBtn">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        新对话
+      </button>
+    </div>
+
+    <div class="session-list-wrapper">
+      <div class="session-group-title">当前任务</div>
+      
+      <div class="session-item active" id="currentSessionItem">
+        <div class="session-title-wrap">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span class="session-text">检查网络信息</span>
+        </div>
+        <div class="running-badge" id="sessionRunningBadge">
+          <span class="running-dot"></span>运行中
+        </div>
+      </div>
+
+      <div class="session-group-title" style="margin-top: 14px;">历史记录</div>
+
+      <div class="session-item">
+        <div class="session-title-wrap">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="4 17 10 11 4 5"></polyline>
+            <line x1="12" y1="19" x2="20" y2="19"></line>
+          </svg>
+          <span>清理构建缓存与依赖</span>
+        </div>
+      </div>
+
+      <div class="session-item">
+        <div class="session-title-wrap">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+          </svg>
+          <span>重构配置文件结构</span>
+        </div>
+      </div>
+
+      <div class="session-item">
+        <div class="session-title-wrap">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <span>排查端口占用</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <button class="btn-settings">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+        设置
+      </button>
+      <span style="font-size: 11px; color: var(--text-faint);">Wandesk v1.2</span>
+    </div>
+  </aside>
+
+  <!-- Central Chat Area -->
+  <main class="main-content">
+    <header class="chat-header">
+      <div class="header-info">
+        <span class="chat-title">检查网络信息</span>
+        <div class="status-pill running" id="headerStatusPill">
+          <span class="running-dot"></span>
+          <span id="headerStatusText">执行任务中</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn-icon-subtle">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          查找
+        </button>
+        <button class="btn-icon-subtle">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+          重命名
+        </button>
+      </div>
+    </header>
+
+    <!-- Message Stream -->
+    <div class="message-stream" id="messageStream">
+      <!-- Round 1: Greeting -->
+      <div class="message-row user">
+        <div class="user-bubble">你好</div>
+      </div>
+
+      <div class="message-row assistant">
+        <div class="assistant-header">
+          <div class="agent-avatar">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path></svg>
+          </div>
+          <span class="agent-name">助理</span>
+        </div>
+        <div class="assistant-body">
+          <p>你好。有什么需要处理的,直接说。</p>
+        </div>
+      </div>
+
+      <!-- Round 2: Network Check (Initial active round) -->
+      <div class="message-row user">
+        <div class="user-bubble">检查网络信息</div>
+      </div>
+
+      <div class="message-row assistant" id="networkTurnMessage">
+        <div class="assistant-header">
+          <div class="agent-avatar">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path></svg>
+          </div>
+          <span class="agent-name">助理</span>
+        </div>
+
+        <!-- Step capsules pipeline -->
+        <div class="process-timeline">
+          <!-- Step 1: Thinking -->
+          <div class="process-step" onclick="toggleStep(this)">
+            <div class="process-header">
+              <div class="process-title-group">
+                <span class="step-tag thinking">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                  思考
+                </span>
+                <span class="process-brief">确认系统类型，制定网络接口与连通性检查计划</span>
+              </div>
+              <svg class="chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </div>
+            <div class="process-body">
+              用户要看网络信息。先确认系统类型,再分别查接口、网关、DNS、代理和外网连通性。
+            </div>
+          </div>
+
+          <!-- Step 2: Exec commands -->
+          <div class="process-step" onclick="toggleStep(this)">
+            <div class="process-header">
+              <div class="process-title-group">
+                <span class="step-tag exec">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                  命令 (2条)
+                </span>
+                <span class="process-brief">uname -a · ifconfig | grep "inet "</span>
+              </div>
+              <svg class="chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </div>
+            <div class="process-body">
+              <div class="cmd-block">
+                <div class="cmd-line"><span class="cmd-prompt">$</span> uname -a</div>
+                <div class="cmd-output">Darwin woodchange-MacBook-Air 25.6.0 arm64</div>
+              </div>
+              <div class="cmd-block">
+                <div class="cmd-line"><span class="cmd-prompt">$</span> ifconfig | grep "inet "</div>
+                <div class="cmd-output">inet 192.168.50.23 netmask 0xffffff00</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 3: Thinking -->
+          <div class="process-step" onclick="toggleStep(this)">
+            <div class="process-header">
+              <div class="process-title-group">
+                <span class="step-tag thinking">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                  思考
+                </span>
+                <span class="process-brief">macOS 环境确认，继续检查网关路由与外网探针</span>
+              </div>
+              <svg class="chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </div>
+            <div class="process-body">
+              macOS 环境。继续查网关、DNS、代理和连通性。
+            </div>
+          </div>
+
+          <!-- Step 4: Exec commands -->
+          <div class="process-step" onclick="toggleStep(this)">
+            <div class="process-header">
+              <div class="process-title-group">
+                <span class="step-tag exec">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                  命令 (2条)
+                </span>
+                <span class="process-brief">netstat -rn · curl -sI https://www.apple.com</span>
+              </div>
+              <svg class="chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </div>
+            <div class="process-body">
+              <div class="cmd-block">
+                <div class="cmd-line"><span class="cmd-prompt">$</span> netstat -rn | grep default</div>
+                <div class="cmd-output">default 192.168.50.1 UGScg en0</div>
+              </div>
+              <div class="cmd-block">
+                <div class="cmd-line"><span class="cmd-prompt">$</span> curl -sI https://www.apple.com | head -1</div>
+                <div class="cmd-output">HTTP/2 200</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- In-progress indicator placeholder before streaming -->
+        <div id="activeProgressHint" class="running-hint-bar">
+          <div class="running-spinner"></div>
+          <span>正在整合网络配置分析...</span>
+        </div>
+
+        <!-- Assistant Output (clean text without card wrapper) -->
+        <div class="assistant-body" id="networkTurnOutput" style="display: none;"></div>
+      </div>
+    </div>
+
+    <!-- Input Dock -->
+    <footer class="input-dock">
+      <div class="input-container">
+        <div class="input-meta-bar">
+          <div class="meta-tags">
+            <div class="meta-chip">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+              ~/wandesk
+            </div>
+            <div class="meta-chip model-chip">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+              wandesk-agent
+            </div>
+          </div>
+          <span style="font-size: 11px; color: var(--text-faint);">回车发送 · Shift+回车换行</span>
+        </div>
+
+        <div class="textarea-wrap">
+          <textarea 
+            id="chatInput" 
+            class="chat-textarea" 
+            rows="1" 
+            placeholder="请输入任务或指令..."
+          ></textarea>
+          <button class="btn-action-send stop-mode" id="actionBtn" title="停止">
+            <!-- Stop icon default during startup -->
+            <svg id="stopIcon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="5" y="5" width="14" height="14" rx="2"></rect>
+            </svg>
+            <svg id="sendIcon" style="display: none;" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </footer>
+  </main>
+</div>
+
+<script>
+  // UI State
+  let isRunning = true;
+  let streamTimer = null;
+  let currentStreamIndex = 0;
+
+  const chatInput = document.getElementById('chatInput');
+  const actionBtn = document.getElementById('actionBtn');
+  const stopIcon = document.getElementById('stopIcon');
+  const sendIcon = document.getElementById('sendIcon');
+  const messageStream = document.getElementById('messageStream');
+  const sessionBadge = document.getElementById('sessionRunningBadge');
+  const headerStatusPill = document.getElementById('headerStatusPill');
+  const headerStatusText = document.getElementById('headerStatusText');
+  const activeProgressHint = document.getElementById('activeProgressHint');
+  const networkTurnOutput = document.getElementById('networkTurnOutput');
+  const newChatBtn = document.getElementById('newChatBtn');
+
+  // Toggle step detail expansion
+  function toggleStep(element) {
+    element.classList.toggle('expanded');
+  }
+
+  // Set running state and switch send/stop buttons
+  function setRunningState(running) {
+    isRunning = running;
+    if (running) {
+      actionBtn.classList.add('stop-mode');
+      stopIcon.style.display = 'block';
+      sendIcon.style.display = 'none';
+      actionBtn.setAttribute('title', '停止');
+      sessionBadge.style.display = 'inline-flex';
+      headerStatusPill.className = 'status-pill running';
+      headerStatusPill.innerHTML = '<span class="running-dot"></span><span>执行任务中</span>';
+    } else {
+      actionBtn.classList.remove('stop-mode');
+      stopIcon.style.display = 'none';
+      sendIcon.style.display = 'block';
+      actionBtn.setAttribute('title', '发送');
+      sessionBadge.style.display = 'none';
+      headerStatusPill.className = 'status-pill';
+      headerStatusPill.innerHTML = '<span>就绪</span>';
+      if (activeProgressHint) {
+        activeProgressHint.style.display = 'none';
+      }
+    }
+  }
+
+  // Raw Markdown-like text to clean HTML
+  function formatResponse(text) {
+    const lines = text.split('\n');
+    let html = '';
+    let inList = false;
+
+    for (let line of lines) {
+      if (line.startsWith('- ')) {
+        if (!inList) {
+          html += '<ul>';
+          inList = true;
+        }
+        html += `<li>${line.substring(2)}</li>`;
+      } else {
+        if (inList) {
+          html += '</ul>';
+          inList = false;
+        }
+        if (line.trim() !== '') {
+          html += `<p>${line}</p>`;
+        }
+      }
+    }
+    if (inList) html += '</ul>';
+    return html;
+  }
+
+  // Target text for initial round
+  const initialTargetText = "网络状况正常,摘要如下:\n\n- 接口 en0,内网地址 192.168.50.23,网关 192.168.50.1\n- DNS 解析到 198.18.0.2,说明本机代理处于 TUN 模式,流量全部经代理\n- 外网连通性正常,apple.com 返回 HTTP 200\n\n如需查看完整的路由表或代理配置,告诉我。";
+
+  // Stream text character by character
+  function streamText(targetContainer, text, speed, onComplete) {
+    currentStreamIndex = 0;
+    targetContainer.style.display = 'block';
+    
+    streamTimer = setInterval(() => {
+      if (currentStreamIndex < text.length) {
+        currentStreamIndex++;
+        const currentSlice = text.substring(0, currentStreamIndex);
+        targetContainer.innerHTML = formatResponse(currentSlice) + '<span class="streaming-cursor"></span>';
+        messageStream.scrollTop = messageStream.scrollHeight;
+      } else {
+        clearInterval(streamTimer);
+        streamTimer = null;
+        targetContainer.innerHTML = formatResponse(text);
+        if (onComplete) onComplete();
+      }
+    }, speed);
+  }
+
+  // Auto-run on load: 2 seconds thinking/running state, then stream
+  window.addEventListener('DOMContentLoaded', () => {
+    setRunningState(true);
+    setTimeout(() => {
+      if (!isRunning) return; // stopped manually
+      if (activeProgressHint) activeProgressHint.style.display = 'none';
+      streamText(networkTurnOutput, initialTargetText, 18, () => {
+        setRunningState(false);
+      });
+    }, 2000);
+  });
+
+  // Action Button (Send / Stop toggle)
+  actionBtn.addEventListener('click', () => {
+    if (isRunning) {
+      // Handle Stop
+      if (streamTimer) {
+        clearInterval(streamTimer);
+        streamTimer = null;
+      }
+      // Finalize current text
+      if (networkTurnOutput && networkTurnOutput.style.display !== 'none') {
+        const cursor = networkTurnOutput.querySelector('.streaming-cursor');
+        if (cursor) cursor.remove();
+      }
+      if (activeProgressHint) activeProgressHint.style.display = 'none';
+      setRunningState(false);
+    } else {
+      // Handle Send
+      handleSendMessage();
+    }
+  });
+
+  // Auto resize textarea
+  chatInput.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 140) + 'px';
+  });
+
+  // Keyboard shortcut: Enter to send, Shift+Enter for newline
+  chatInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (!isRunning) {
+        handleSendMessage();
+      }
+    }
+  });
+
+  // New Chat button
+  newChatBtn.addEventListener('click', () => {
+    if (isRunning) {
+      clearInterval(streamTimer);
+    }
+    location.reload();
+  });
+
+  // Send message and simulate turn
+  function handleSendMessage() {
+    const text = chatInput.value.trim();
+    if (!text) return;
+
+    chatInput.value = '';
+    chatInput.style.height = 'auto';
+
+    // Append User Row
+    const userRow = document.createElement('div');
+    userRow.className = 'message-row user';
+    userRow.innerHTML = `<div class="user-bubble">${escapeHtml(text)}</div>`;
+    messageStream.appendChild(userRow);
+
+    // Create Assistant Row
+    const assistantRow = document.createElement('div');
+    assistantRow.className = 'message-row assistant';
+    assistantRow.innerHTML = `
+      <div class="assistant-header">
+        <div class="agent-avatar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path></svg>
+        </div>
+        <span class="agent-name">助理</span>
+      </div>
+      <div class="process-timeline">
+        <div class="process-step" onclick="toggleStep(this)">
+          <div class="process-header">
+            <div class="process-title-group">
+              <span class="step-tag thinking">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                思考
+              </span>
+              <span class="process-brief">识别目标路径，读取工作目录结构与文件清单</span>
+            </div>
+            <svg class="chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </div>
+          <div class="process-body">
+            检查当前工作目录文件状态，准备执行基础探测命令。
+          </div>
+        </div>
+        <div class="process-step" onclick="toggleStep(this)">
+          <div class="process-header">
+            <div class="process-title-group">
+              <span class="step-tag exec">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                命令 (1条)
+              </span>
+              <span class="process-brief">ls -la ~/wandesk</span>
+            </div>
+            <svg class="chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </div>
+          <div class="process-body">
+            <div class="cmd-block">
+              <div class="cmd-line"><span class="cmd-prompt">$</span> ls -la ~/wandesk</div>
+              <div class="cmd-output">total 48\ndrwxr-xr-x   6 wandesk  staff   192 Apr 12 10:24 .\ndrwxr-xr-x+ 45 wandesk  staff  1440 Apr 12 09:12 ..\n-rw-r--r--   1 wandesk  staff   320 Apr 12 10:18 config.json\ndrwxr-xr-x   4 wandesk  staff   128 Apr 12 09:40 src\n-rw-r--r--   1 wandesk  staff  1024 Apr 12 10:24 README.md</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="running-hint-bar dynamic-hint">
+        <div class="running-spinner"></div>
+        <span>正在生成执行答复...</span>
+      </div>
+      <div class="assistant-body dynamic-output" style="display: none;"></div>
+    `;
+
+    messageStream.appendChild(assistantRow);
+    messageStream.scrollTop = messageStream.scrollHeight;
+
+    setRunningState(true);
+
+    const hint = assistantRow.querySelector('.dynamic-hint');
+    const output = assistantRow.querySelector('.dynamic-output');
+
+    const replyText = `已在目录 \`~/wandesk\` 中完成检查。目前目录状态良好，包含项目配置文件 \`config.json\` 与源码模块 \`src/\`。如需执行构建或具体脚本处理，请随时指定。`;
+
+    setTimeout(() => {
+      if (!isRunning) return;
+      hint.style.display = 'none';
+      streamText(output, replyText, 20, () => {
+        setRunningState(false);
+      });
+    }, 1500);
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+</script>
+</body>
+</html>

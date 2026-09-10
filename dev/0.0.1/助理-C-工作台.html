@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>助理原型 C · 工作台</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+/* ── 方案 C「工作台」:对话和过程分栏。左边对话只剩纯文字(用户 / 助理),干净;
+      右边「活动」栏实时滚动思考、命令、输出和改动的文件;侧栏收成图标条,悬停展开。 ── */
+:root{
+  --bg:#f5f6f8;--paper:#fff;--t1:#14171f;--t2:#3a404c;--t3:#6f7684;--t4:#a0a6b3;
+  --accent:#3b82f6;--accent-soft:rgba(59,130,246,.09);--ring:rgba(59,130,246,.28);
+  --line:#e6e8ec;--line2:#d9dce2;--fill:#f1f3f6;--hover:#eceff3;--ok:#22a06b;
+  --mono:ui-monospace,"SF Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font:14px/1.6 -apple-system,"PingFang SC","Helvetica Neue",sans-serif;color:var(--t1);background:#e9ecf1;overflow:hidden}
+.win{position:absolute;inset:18px;border:1px solid #c8cdd6;border-radius:10px;overflow:hidden;background:var(--paper);box-shadow:0 24px 48px rgba(20,30,50,.18),0 4px 12px rgba(20,30,50,.1);display:flex}
+
+/* 图标侧栏,悬停展开 */
+.rail{width:52px;flex:none;background:var(--bg);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:stretch;padding:12px 8px;gap:4px;transition:width .18s;overflow:hidden}
+.rail:hover{width:232px}
+.rail .item{display:flex;align-items:center;gap:10px;height:34px;padding:0 8px;border-radius:8px;color:var(--t2);cursor:pointer;white-space:nowrap}
+.rail .item:hover{background:var(--hover)}
+.rail .item.on{background:#fff;box-shadow:0 1px 2px rgba(20,30,50,.08),0 0 0 1px var(--line);color:var(--t1)}
+.rail .item i{width:20px;height:20px;flex:none;display:grid;place-items:center;font-style:normal;font-size:14px}
+.rail .item .lab{opacity:0;transition:opacity .12s;font-size:13px;overflow:hidden;text-overflow:ellipsis}
+.rail:hover .item .lab{opacity:1}
+.rail .grp{height:18px;font-size:11px;color:var(--t4);padding:0 8px;opacity:0;white-space:nowrap;margin-top:8px}
+.rail:hover .grp{opacity:1}
+.rail .item .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:breathe 1.4s infinite;margin-left:auto;flex:none}
+@keyframes breathe{0%,100%{opacity:.35}50%{opacity:1}}
+.rail .spacer{flex:1}
+
+/* 对话栏 */
+.main{flex:1;min-width:0;display:flex;flex-direction:column;position:relative}
+.head{height:48px;flex:none;display:flex;align-items:center;gap:10px;padding:0 24px;border-bottom:1px solid var(--line);font-size:14px;font-weight:600}
+.head .sub{margin-left:auto;font-weight:400;font-size:12px;color:var(--t4)}
+.head .toggle{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--t3);cursor:pointer}
+.head .toggle:hover{background:var(--hover);color:var(--t1)}
+.head .toggle svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.scroll{flex:1;min-height:0;overflow:auto;scroll-behavior:smooth}
+.col{max-width:680px;margin:0 auto;padding:30px 24px 150px;display:flex;flex-direction:column;gap:26px}
+.user{align-self:flex-end;max-width:76%;padding:10px 16px;border-radius:18px;background:var(--fill);white-space:pre-wrap;font-size:14.5px}
+.turn{display:flex;flex-direction:column;gap:8px}
+.ai{white-space:pre-wrap;font-size:15px;line-height:1.8}
+.status{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--t3);height:24px}
+.status .sp{width:11px;height:11px;border-radius:50%;border:2px solid #cfd6e0;border-top-color:var(--accent);animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.status a{color:var(--accent);text-decoration:none;cursor:pointer}
+.status a:hover{text-decoration:underline}
+.trail{font-size:12px;color:var(--t4);display:flex;gap:6px;align-items:center}
+.trail .ok{width:10px;height:10px;border-radius:50%;background:var(--ok);position:relative}
+.trail .ok::after{content:"";position:absolute;left:3px;top:1px;width:2.5px;height:5px;border:solid #fff;border-width:0 1.5px 1.5px 0;transform:rotate(45deg)}
+.trail a{color:var(--t3);cursor:pointer}.trail a:hover{color:var(--accent)}
+
+/* 输入 */
+.compose{position:absolute;left:0;right:0;bottom:0;padding:0 24px 18px;background:linear-gradient(180deg,rgba(255,255,255,0),#fff 40%)}
+.box{max-width:680px;margin:0 auto;border:1px solid var(--line2);border-radius:14px;background:#fff;box-shadow:0 8px 30px -12px rgba(20,30,50,.25),0 1px 2px rgba(20,30,50,.06)}
+.box:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+.box textarea{display:block;width:100%;border:0;outline:0;resize:none;padding:13px 16px 6px;font:inherit;font-size:14.5px;line-height:1.5;min-height:46px;max-height:200px;background:transparent}
+.bar{display:flex;align-items:center;gap:6px;padding:2px 10px 10px 12px}
+.chip{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 9px;border-radius:7px;font-size:12px;color:var(--t3);cursor:pointer}
+.chip:hover{background:var(--fill);color:var(--t1)}
+.chip code{font:11.5px var(--mono)}
+.chip svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.send{margin-left:auto;width:32px;height:32px;border-radius:9px;border:0;cursor:pointer;display:grid;place-items:center;color:#fff;background:var(--accent)}
+.send svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.send.stop{background:var(--t1)}.send.stop svg{fill:currentColor;stroke:none}
+
+/* 活动栏 */
+.act{width:340px;flex:none;border-left:1px solid var(--line);background:var(--bg);display:flex;flex-direction:column;transition:width .18s,opacity .18s}
+.act.hide{width:0;opacity:0;overflow:hidden;border:0}
+.act .ahead{height:48px;flex:none;display:flex;align-items:center;gap:8px;padding:0 16px;border-bottom:1px solid var(--line);font-size:12.5px;font-weight:600;color:var(--t2)}
+.act .ahead .cnt{margin-left:auto;font-weight:400;color:var(--t4)}
+.feed{flex:1;overflow:auto;padding:12px 14px 16px;display:flex;flex-direction:column;gap:8px}
+.card{background:#fff;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:12.5px;color:var(--t2);animation:in .18s ease-out}
+@keyframes in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.card .k{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--t4);margin-bottom:4px}
+.card .k i{width:14px;height:14px;display:grid;place-items:center;font-style:normal;font-size:11px;border-radius:4px;background:var(--fill);color:var(--t3)}
+.card .k .t{margin-left:auto;font:11px var(--mono)}
+.card.cmd{border-left:3px solid var(--accent)}
+.card pre{margin:4px 0 0;padding:7px 9px;border-radius:6px;background:#0f1218;color:#d7dce6;font:11.5px/1.5 var(--mono);white-space:pre-wrap;max-height:150px;overflow:auto}
+.card pre .p{color:#7f8aa3}
+.card.file{border-left:3px solid var(--ok)}
+.card.file code{font:12px var(--mono);color:var(--t1)}
+.card.live{border-style:dashed;color:var(--t3)}
+/* 窄窗口:活动栏变成右侧悬浮层,默认收起 */
+@media (max-width:1040px){
+  .act{position:absolute;right:0;top:0;bottom:0;z-index:5;box-shadow:-12px 0 32px rgba(20,30,50,.14)}
+}
+.tag{position:fixed;left:26px;bottom:24px;font-size:11px;color:#fff;background:rgba(20,30,50,.75);padding:3px 8px;border-radius:4px;z-index:9}
+</style>
+</head>
+<body>
+<div class="win">
+  <aside class="rail">
+    <div class="item"><i>✎</i><span class="lab">新对话</span></div>
+    <div class="grp">今天</div>
+    <div class="item on"><i>💬</i><span class="lab">你好</span><span class="dot"></span></div>
+    <div class="grp">更早</div>
+    <div class="item"><i>🧾</i><span class="lab">整理下载目录里的发票</span></div>
+    <div class="item"><i>📊</i><span class="lab">给周报生成图表</span></div>
+    <div class="item"><i>📄</i><span class="lab">对比两份合同差异</span></div>
+    <div class="spacer"></div>
+    <div class="item"><i>⚙︎</i><span class="lab">设置</span></div>
+  </aside>
+  <section class="main">
+    <div class="head">你好<span class="sub">~/wandesk · wandesk-agent</span><span class="toggle" id="toggle" title="活动栏"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg></span></div>
+    <div class="scroll" id="scroll">
+      <div class="col" id="col">
+        <div class="user">你好</div>
+        <div class="turn"><div class="ai">你好。有什么需要处理的,直接说。</div></div>
+        <div class="user">检查网络信息</div>
+        <div class="turn" id="live"><div class="status"><span class="sp"></span>正在整理结果 · 已执行 4 条命令 <a>查看活动</a></div></div>
+      </div>
+    </div>
+    <div class="compose">
+      <div class="box">
+        <textarea id="input" placeholder="交给助理处理的事…" rows="1"></textarea>
+        <div class="bar">
+          <span class="chip"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
+          <span class="chip"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><code>~/wandesk</code></span>
+          <span class="chip"><code>wandesk-agent</code></span>
+          <button class="send" id="send"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </section>
+  <aside class="act" id="act">
+    <div class="ahead">活动<span class="cnt" id="cnt">6 项</span></div>
+    <div class="feed" id="feed">
+      <div class="card"><div class="k"><i>✦</i>思考<span class="t">15:40:02</span></div>用户要看网络信息。先确认系统类型,再分别查接口、网关、DNS、代理和外网连通性。</div>
+      <div class="card cmd"><div class="k"><i>›</i>命令<span class="t">15:40:03</span></div><pre><span class="p">$ </span>uname -a
+Darwin woodchange-MacBook-Air 25.6.0 arm64</pre></div>
+      <div class="card cmd"><div class="k"><i>›</i>命令<span class="t">15:40:03</span></div><pre><span class="p">$ </span>ifconfig | grep "inet "
+inet 127.0.0.1 netmask 0xff000000
+inet 192.168.50.23 netmask 0xffffff00</pre></div>
+      <div class="card"><div class="k"><i>✦</i>思考<span class="t">15:40:05</span></div>macOS 环境。继续查网关、DNS、代理和连通性。</div>
+      <div class="card cmd"><div class="k"><i>›</i>命令<span class="t">15:40:06</span></div><pre><span class="p">$ </span>netstat -rn | grep default
+default  192.168.50.1  UGScg  en0</pre></div>
+      <div class="card cmd"><div class="k"><i>›</i>命令<span class="t">15:40:07</span></div><pre><span class="p">$ </span>scutil --dns | head -5; curl -sI https://www.apple.com | head -1
+nameserver[0] : 198.18.0.2
+HTTP/2 200</pre></div>
+      <div class="card live" id="livecard">正在整理结果…</div>
+    </div>
+  </aside>
+</div>
+<div class="tag">原型 C · 工作台</div>
+
+<script>
+const $=(s,r=document)=>r.querySelector(s);
+const col=$('#col'),scroll=$('#scroll'),input=$('#input'),send=$('#send'),feed=$('#feed'),cnt=$('#cnt'),act=$('#act');
+$('#toggle').addEventListener('click',()=>act.classList.toggle('hide'));
+if(window.innerWidth<=1040)act.classList.add('hide');
+document.addEventListener('click',e=>{if(e.target.closest('.status a, .trail a'))act.classList.remove('hide')});
+const bottom=()=>{scroll.scrollTop=scroll.scrollHeight;feed.scrollTop=feed.scrollHeight};
+input.addEventListener('input',()=>{input.style.height='auto';input.style.height=Math.min(200,input.scrollHeight)+'px'});
+input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();submit()}});
+send.addEventListener('click',()=>running?stop():submit());
+let running=false,timer=null,n=6;
+const STOP='<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
+const UP='<svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+const now=()=>new Date().toTimeString().slice(0,8);
+function card(html,cls=''){$('#livecard')?.remove();feed.insertAdjacentHTML('beforeend',`<div class="card ${cls}">${html}</div>`);cnt.textContent=`${++n} 项`}
+function liveCard(t){$('#livecard')?.remove();feed.insertAdjacentHTML('beforeend',`<div class="card live" id="livecard">${t}</div>`)}
+
+setTimeout(()=>finish($('#live'),`网络状况正常,摘要如下:
+
+- 接口 en0,内网地址 192.168.50.23,网关 192.168.50.1
+- DNS 解析到 198.18.0.2,说明本机代理处于 TUN 模式,流量全部经代理
+- 外网连通性正常,apple.com 返回 HTTP 200
+
+如需查看完整的路由表或代理配置,告诉我。`,'4 条命令'),1800);
+
+function submit(){
+  const text=input.value.trim();if(!text||running)return;
+  input.value='';input.style.height='auto';
+  const u=document.createElement('div');u.className='user';u.textContent=text;col.appendChild(u);
+  const turn=document.createElement('div');turn.className='turn';
+  turn.innerHTML=`<div class="status"><span class="sp"></span><span class="s">正在思考</span> <a>查看活动</a></div>`;
+  col.appendChild(turn);bottom();
+  running=true;send.classList.add('stop');send.innerHTML=STOP;liveCard('正在思考…');
+  const s=$('.s',turn);
+  const q=[
+    [700,()=>{card(`<div class="k"><i>✦</i>思考<span class="t">${now()}</span></div>需要先看一下工作目录里有什么,再决定怎么做。`);s.textContent='正在执行命令 · 已执行 1 条命令';liveCard('正在执行 ls -la …')}],
+    [900,()=>{card(`<div class="k"><i>›</i>命令<span class="t">${now()}</span></div><pre><span class="p">$ </span>ls -la
+-rw-r--r--  1 woodchange staff  11 Sep 10 15:31 gateway-check.txt
+drwxr-xr-x  9 woodchange staff 288 Sep 10 15:29 apps</pre>`,'cmd');card(`<div class="k"><i>＋</i>写入文件<span class="t">${now()}</span></div><code>notes/plan.md</code> · 新建,12 行`,'file');s.textContent='正在整理结果 · 已执行 1 条命令,写入 1 个文件';liveCard('正在整理结果…')}],
+    [900,()=>finish(turn,`已经看过工作目录,并把初步计划写到了 notes/plan.md。关于「${text}」,我建议分两步:先列出涉及的文件,再逐个处理。确认后我就开始。`,'1 条命令 · 1 个文件')],
+  ];
+  let i=0;const next=()=>{if(i>=q.length)return;const [d,f]=q[i++];timer=setTimeout(()=>{if(!running)return;f();bottom();next()},d)};next();
+}
+function finish(turn,text,trail){
+  $('.status',turn)?.remove();$('#livecard')?.remove();
+  const ai=document.createElement('div');ai.className='ai';turn.appendChild(ai);
+  let i=0;running=true;send.classList.add('stop');send.innerHTML=STOP;
+  const tick=()=>{if(!running)return;ai.textContent=text.slice(0,i+=3);bottom();if(i<text.length)timer=setTimeout(tick,16);else{turn.insertAdjacentHTML('beforeend',`<div class="trail"><span class="ok"></span>${trail} · <a>查看活动</a></div>`);done()}};tick();
+}
+function stop(){running=false;clearTimeout(timer);document.querySelectorAll('.status').forEach(x=>x.remove());$('#livecard')?.remove();done()}
+function done(){running=false;send.classList.remove('stop');send.innerHTML=UP;$('.rail .item.on .dot')?.remove()}
+</script>
+</body>
+</html>

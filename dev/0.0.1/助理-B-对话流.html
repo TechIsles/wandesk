@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>助理原型 B · 对话流</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+/* ── 方案 B「对话流」:整体扁平,去掉侧栏玻璃。对话就是一列文字,AI 回复无边框、无头像;
+      过程折成一行「思考 · 执行了 2 条命令 · 思考 · 执行了 2 条命令」,点开才展开;
+      输入框悬浮圆角,目录和模型做成两个小标签。 ── */
+:root{
+  --bg:#f7f8fa;--paper:#fff;--t1:#14171f;--t2:#3a404c;--t3:#6f7684;--t4:#a0a6b3;
+  --accent:#3b82f6;--accent-soft:rgba(59,130,246,.09);--ring:rgba(59,130,246,.28);
+  --line:#e6e8ec;--line2:#d9dce2;--fill:#f1f3f6;--hover:#eceff3;
+  --mono:ui-monospace,"SF Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font:14px/1.6 -apple-system,"PingFang SC","Helvetica Neue",sans-serif;color:var(--t1);background:#e9ecf1;overflow:hidden}
+.win{position:absolute;inset:18px;border:1px solid #c8cdd6;border-radius:10px;overflow:hidden;background:var(--paper);box-shadow:0 24px 48px rgba(20,30,50,.18),0 4px 12px rgba(20,30,50,.1);display:flex}
+
+/* 侧栏:极简列表 */
+.side{width:236px;flex:none;background:var(--bg);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:14px 10px 10px}
+.side .brand{display:flex;align-items:center;gap:8px;padding:0 8px 12px;font-size:13px;font-weight:600;color:var(--t2)}
+.side .brand i{width:22px;height:22px;border-radius:6px;background:linear-gradient(160deg,#5aa0f6,#2f6fe0);display:grid;place-items:center;color:#fff;font-style:normal;font-size:12px}
+.new{display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:8px;font-size:13.5px;font-weight:500;color:var(--t1);background:#fff;border:1px solid var(--line2);cursor:pointer;box-shadow:0 1px 1px rgba(20,30,50,.04)}
+.new:hover{background:var(--hover)}
+.new kbd{margin-left:auto;font:11px var(--mono);color:var(--t4)}
+.list{margin-top:14px;display:flex;flex-direction:column;gap:1px;overflow:auto;flex:1}
+.grp{font-size:11px;font-weight:600;color:var(--t4);letter-spacing:.06em;padding:10px 10px 4px}
+.conv{display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;border-radius:8px;font-size:13px;color:var(--t2);cursor:pointer}
+.conv:hover{background:var(--hover)}
+.conv.on{background:#fff;color:var(--t1);box-shadow:0 1px 2px rgba(20,30,50,.08),0 0 0 1px var(--line)}
+.conv .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:breathe 1.4s ease-in-out infinite;flex:none}
+.conv .title{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@keyframes breathe{0%,100%{opacity:.35}50%{opacity:1}}
+.side-foot{display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:8px;font-size:13px;color:var(--t3);cursor:pointer}
+.side-foot:hover{background:var(--hover);color:var(--t1)}
+
+/* 对话区 */
+.main{flex:1;min-width:0;display:flex;flex-direction:column;position:relative}
+.head{height:48px;flex:none;display:flex;align-items:center;padding:0 28px;font-size:14px;font-weight:600;border-bottom:1px solid var(--line)}
+.head .sub{margin-left:auto;font-weight:400;font-size:12px;color:var(--t4)}
+.scroll{flex:1;min-height:0;overflow:auto;scroll-behavior:smooth}
+.col{max-width:720px;margin:0 auto;padding:32px 24px 160px;display:flex;flex-direction:column;gap:28px}
+
+.user{align-self:flex-end;max-width:76%;padding:10px 16px;border-radius:18px;background:var(--fill);color:var(--t1);white-space:pre-wrap;font-size:14.5px}
+.turn{display:flex;flex-direction:column;gap:10px}
+.ai{white-space:pre-wrap;font-size:15px;line-height:1.8;color:var(--t1)}
+.ai code{font:13px var(--mono);background:var(--fill);padding:1px 6px;border-radius:5px}
+
+/* 过程:一行摘要,展开为时间线 */
+.proc{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px 0 8px;border-radius:13px;font-size:12.5px;color:var(--t3);background:var(--fill);cursor:pointer;user-select:none;align-self:flex-start;max-width:100%}
+.proc:hover{background:var(--hover);color:var(--t2)}
+.proc .sp{width:11px;height:11px;border-radius:50%;border:2px solid #cfd6e0;border-top-color:var(--accent);animation:spin .7s linear infinite;flex:none}
+.proc .ok{width:11px;height:11px;border-radius:50%;background:#22a06b;flex:none;position:relative}
+.proc .ok::after{content:"";position:absolute;left:3px;top:1.5px;width:3px;height:6px;border:solid #fff;border-width:0 1.6px 1.6px 0;transform:rotate(45deg)}
+.proc .sum{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.proc .sum b{font-weight:500;color:var(--t2)}
+.proc .chev{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .15s;flex:none;opacity:.7}
+.proc.open .chev{transform:rotate(180deg)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.timeline{display:none;margin:2px 0 4px 6px;padding-left:16px;border-left:1.5px solid var(--line2);flex-direction:column;gap:12px}
+.proc.open+.timeline{display:flex}
+.ev{position:relative;font-size:13px;color:var(--t2)}
+.ev::before{content:"";position:absolute;left:-21.5px;top:8px;width:9px;height:9px;border-radius:50%;background:#fff;border:1.5px solid var(--line2)}
+.ev.cmd::before{border-color:var(--accent);background:var(--accent-soft)}
+.ev .lab{font-size:11.5px;color:var(--t4);margin-bottom:2px;letter-spacing:.02em}
+.ev pre{margin:4px 0 0;padding:8px 10px;border-radius:7px;background:#0f1218;color:#d7dce6;font:12px/1.55 var(--mono);white-space:pre-wrap;max-height:160px;overflow:auto}
+.ev pre .p{color:#7f8aa3}
+
+/* 输入:悬浮 */
+.compose{position:absolute;left:0;right:0;bottom:0;padding:0 24px 18px;background:linear-gradient(180deg,rgba(255,255,255,0),#fff 40%)}
+.box{max-width:720px;margin:0 auto;border:1px solid var(--line2);border-radius:16px;background:#fff;box-shadow:0 8px 30px -12px rgba(20,30,50,.25),0 1px 2px rgba(20,30,50,.06);transition:box-shadow .12s,border-color .12s}
+.box:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--ring),0 8px 30px -12px rgba(20,30,50,.25)}
+.box textarea{display:block;width:100%;border:0;outline:0;resize:none;padding:14px 16px 6px;font:inherit;font-size:14.5px;line-height:1.5;min-height:48px;max-height:200px;background:transparent}
+.bar{display:flex;align-items:center;gap:6px;padding:2px 10px 10px 12px}
+.chip{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 9px;border-radius:7px;font-size:12px;color:var(--t3);cursor:pointer}
+.chip:hover{background:var(--fill);color:var(--t1)}
+.chip code{font:11.5px var(--mono)}
+.chip svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.send{margin-left:auto;width:32px;height:32px;border-radius:9px;border:0;cursor:pointer;display:grid;place-items:center;color:#fff;background:var(--accent)}
+.send:hover{filter:brightness(1.06)}
+.send svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.send.stop{background:var(--t1)}
+.send.stop svg{fill:currentColor;stroke:none}
+.note{max-width:720px;margin:8px auto 0;font-size:11.5px;color:var(--t4);text-align:center}
+.tag{position:fixed;left:26px;bottom:24px;font-size:11px;color:#fff;background:rgba(20,30,50,.75);padding:3px 8px;border-radius:4px;z-index:9}
+</style>
+</head>
+<body>
+<div class="win">
+  <aside class="side">
+    <div class="brand"><i>W</i>助理</div>
+    <div class="new">✎ 新对话<kbd>⌘N</kbd></div>
+    <div class="list">
+      <div class="grp">今天</div>
+      <div class="conv on"><span class="dot"></span><span class="title">你好</span></div>
+      <div class="grp">更早</div>
+      <div class="conv"><span class="title">整理下载目录里的发票</span></div>
+      <div class="conv"><span class="title">给周报生成图表</span></div>
+      <div class="conv"><span class="title">对比两份合同差异</span></div>
+    </div>
+    <div class="side-foot">⚙︎ 设置</div>
+  </aside>
+  <section class="main">
+    <div class="head">你好<span class="sub">~/wandesk · wandesk-agent</span></div>
+    <div class="scroll" id="scroll">
+      <div class="col" id="col">
+        <div class="user">你好</div>
+        <div class="turn"><div class="ai">你好。有什么需要处理的,直接说。</div></div>
+        <div class="user">检查网络信息</div>
+        <div class="turn" id="live">
+          <div class="proc"><span class="sp"></span><span class="sum"><b>正在整理结果</b> · 思考 · 执行了 2 条命令 · 思考 · 执行了 2 条命令</span><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+          <div class="timeline">
+            <div class="ev"><div class="lab">思考</div>用户要看网络信息。先确认系统类型,再分别查接口、网关、DNS、代理和外网连通性。</div>
+            <div class="ev cmd"><div class="lab">执行命令</div><pre><span class="p">$ </span>uname -a
+Darwin woodchange-MacBook-Air 25.6.0 arm64
+<span class="p">$ </span>ifconfig | grep "inet "
+inet 127.0.0.1 netmask 0xff000000
+inet 192.168.50.23 netmask 0xffffff00 broadcast 192.168.50.255</pre></div>
+            <div class="ev"><div class="lab">思考</div>macOS 环境。继续查网关、DNS、代理和连通性。</div>
+            <div class="ev cmd"><div class="lab">执行命令</div><pre><span class="p">$ </span>netstat -rn | grep default
+default  192.168.50.1  UGScg  en0
+<span class="p">$ </span>scutil --dns | head -5; curl -sI https://www.apple.com | head -1
+nameserver[0] : 198.18.0.2
+HTTP/2 200</pre></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="compose">
+      <div class="box">
+        <textarea id="input" placeholder="交给助理处理的事…" rows="1"></textarea>
+        <div class="bar">
+          <span class="chip"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
+          <span class="chip"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><code>~/wandesk</code></span>
+          <span class="chip"><code>wandesk-agent</code></span>
+          <button class="send" id="send"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+        </div>
+      </div>
+      <div class="note">助理会在工作目录内执行命令、读写文件。</div>
+    </div>
+  </section>
+</div>
+<div class="tag">原型 B · 对话流</div>
+
+<script>
+const $=(s,r=document)=>r.querySelector(s);
+document.addEventListener('click',e=>{const p=e.target.closest('.proc');if(p)p.classList.toggle('open')});
+const col=$('#col'),scroll=$('#scroll'),input=$('#input'),send=$('#send');
+const bottom=()=>{scroll.scrollTop=scroll.scrollHeight};
+input.addEventListener('input',()=>{input.style.height='auto';input.style.height=Math.min(200,input.scrollHeight)+'px'});
+input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();submit()}});
+send.addEventListener('click',()=>running?stop():submit());
+let running=false,timer=null;
+const STOP='<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
+const UP='<svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+const CHEV='<svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>';
+
+setTimeout(()=>finish($('#live'),`网络状况正常,摘要如下:
+
+- 接口 en0,内网地址 192.168.50.23,网关 192.168.50.1
+- DNS 解析到 198.18.0.2,说明本机代理处于 TUN 模式,流量全部经代理
+- 外网连通性正常,apple.com 返回 HTTP 200
+
+如需查看完整的路由表或代理配置,告诉我。`),1800);
+
+function submit(){
+  const text=input.value.trim();if(!text||running)return;
+  input.value='';input.style.height='auto';
+  const u=document.createElement('div');u.className='user';u.textContent=text;col.appendChild(u);
+  const turn=document.createElement('div');turn.className='turn';
+  turn.innerHTML=`<div class="proc"><span class="sp"></span><span class="sum"><b>正在思考</b></span>${CHEV}</div><div class="timeline"></div>`;
+  col.appendChild(turn);bottom();
+  running=true;send.classList.add('stop');send.innerHTML=STOP;
+  const sum=$('.sum',turn),tl=$('.timeline',turn);const parts=[];
+  const q=[
+    [700,()=>{parts.push('思考');tl.insertAdjacentHTML('beforeend','<div class="ev"><div class="lab">思考</div>需要先看一下工作目录里有什么,再决定怎么做。</div>');sum.innerHTML=`<b>正在执行命令</b> · ${parts.join(' · ')}`}],
+    [900,()=>{parts.push('执行了 1 条命令');tl.insertAdjacentHTML('beforeend',`<div class="ev cmd"><div class="lab">执行命令</div><pre><span class="p">$ </span>ls -la
+total 16
+-rw-r--r--  1 woodchange staff  11 Sep 10 15:31 gateway-check.txt
+drwxr-xr-x  9 woodchange staff 288 Sep 10 15:29 apps</pre></div>`);sum.innerHTML=`<b>正在整理结果</b> · ${parts.join(' · ')}`}],
+    [900,()=>finish(turn,`已经看过工作目录。关于「${text}」,我建议分两步:先列出涉及的文件,再逐个处理。确认后我就开始。`)],
+  ];
+  let i=0;const next=()=>{if(i>=q.length)return;const [d,f]=q[i++];timer=setTimeout(()=>{if(!running)return;f();bottom();next()},d)};next();
+}
+function settle(turn){const p=$('.proc',turn);if(!p)return;const sp=$('.sp',p);if(sp){sp.outerHTML='<span class="ok"></span>'}const sum=$('.sum',p);sum.innerHTML=sum.innerHTML.replace(/<b>[^<]*<\/b> · ?/,'')}
+function finish(turn,text){
+  settle(turn);
+  const ai=document.createElement('div');ai.className='ai';turn.appendChild(ai);
+  let i=0;running=true;send.classList.add('stop');send.innerHTML=STOP;
+  const tick=()=>{if(!running)return;ai.textContent=text.slice(0,i+=3);bottom();if(i<text.length)timer=setTimeout(tick,16);else done()};tick();
+}
+function stop(){running=false;clearTimeout(timer);document.querySelectorAll('.turn').forEach(settle);done()}
+function done(){running=false;send.classList.remove('stop');send.innerHTML=UP;$('.conv.on .dot')?.remove()}
+</script>
+</body>
+</html>

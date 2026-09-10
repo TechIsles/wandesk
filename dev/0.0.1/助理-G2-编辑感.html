@@ -1,0 +1,1075 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wandesk 助理</title>
+<style>
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  :root {
+    --font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    --font-mono: "SF Mono", Menlo, Monaco, "Consolas", monospace;
+    
+    --bg-window: #f5f5f3;
+    --bg-sidebar: #ecece9;
+    --bg-surface: #ffffff;
+    --bg-subtle: #f8f8f6;
+    
+    --text-primary: #191918;
+    --text-secondary: #63625e;
+    --text-tertiary: #92908a;
+    --text-quaternary: #b5b3ad;
+
+    --accent-blue: #0969da;
+    --accent-blue-subtle: rgba(9, 105, 218, 0.08);
+    --border-subtle: rgba(0, 0, 0, 0.06);
+    --border-strong: rgba(0, 0, 0, 0.12);
+    --selection-bg: #dbeafe;
+
+    --sidebar-w: 260px;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--bg-window);
+    color: var(--text-primary);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    user-select: none;
+  }
+
+  /* 窗口左侧：会话列表 */
+  .sidebar {
+    width: var(--sidebar-w);
+    background-color: var(--bg-sidebar);
+    border-right: 1px solid var(--border-subtle);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    flex-shrink: 0;
+  }
+
+  .sidebar-header {
+    padding: 16px 14px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .app-branding {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text-secondary);
+  }
+
+  .app-branding svg {
+    color: var(--text-primary);
+  }
+
+  .btn-new-chat {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 7px 12px;
+    margin-top: 4px;
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    transition: all 0.15s ease;
+  }
+
+  .btn-new-chat:hover {
+    background-color: #fafafa;
+    border-color: var(--border-strong);
+  }
+
+  .sidebar-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    padding: 14px 14px 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .session-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 8px;
+    list-style: none;
+  }
+
+  .session-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    margin-bottom: 2px;
+    transition: background-color 0.12s, color 0.12s;
+  }
+
+  .session-item:hover {
+    background-color: rgba(0, 0, 0, 0.04);
+    color: var(--text-primary);
+  }
+
+  .session-item.active {
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+    font-weight: 500;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  .session-title {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-right: 8px;
+  }
+
+  /* 运行中微光圆点 */
+  .status-pulse {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background-color: var(--accent-blue);
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .status-pulse::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    border-radius: 50%;
+    background-color: var(--accent-blue);
+    opacity: 0.4;
+    animation: pulse-ring 1.8s infinite cubic-bezier(0.215, 0.61, 0.355, 1);
+  }
+
+  @keyframes pulse-ring {
+    0% { transform: scale(0.9); opacity: 0.8; }
+    70% { transform: scale(2.2); opacity: 0; }
+    100% { transform: scale(2.2); opacity: 0; }
+  }
+
+  .sidebar-footer {
+    padding: 10px 14px;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .btn-settings {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 8px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-settings:hover {
+    color: var(--text-primary);
+    background-color: rgba(0,0,0,0.04);
+  }
+
+  /* 主工作区 (编辑器画卷感) */
+  .main-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--bg-surface);
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* 顶部栏 */
+  .top-bar {
+    height: 48px;
+    padding: 0 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border-subtle);
+    flex-shrink: 0;
+  }
+
+  .top-session-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .top-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .top-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    background: var(--accent-blue-subtle);
+    color: var(--accent-blue);
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .top-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .top-tag {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-tertiary);
+  }
+
+  /* 对话正文流式文档 */
+  .editor-canvas {
+    flex: 1;
+    overflow-y: auto;
+    padding: 40px 0 30px;
+    scroll-behavior: smooth;
+    user-select: text;
+  }
+
+  .document-body {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* 对话轮次 */
+  .turn-block {
+    margin-bottom: 38px;
+    position: relative;
+  }
+
+  /* 用户发言：书边批注/提问样式，轻盈而明确 */
+  .user-turn {
+    margin-bottom: 24px;
+  }
+
+  .user-query {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.5;
+    color: var(--text-primary);
+    padding-bottom: 4px;
+  }
+
+  .user-query::before {
+    content: '❯';
+    font-size: 12px;
+    color: var(--accent-blue);
+    font-weight: bold;
+    transform: translateY(-1px);
+  }
+
+  /* 助理发言主体排版 (极简文档感) */
+  .assistant-prose {
+    font-size: 15px;
+    line-height: 1.72;
+    color: #272725;
+    letter-spacing: -0.005em;
+  }
+
+  .assistant-prose p {
+    margin-bottom: 12px;
+  }
+
+  .assistant-prose ul {
+    margin: 10px 0 14px 18px;
+    padding: 0;
+  }
+
+  .assistant-prose li {
+    margin-bottom: 6px;
+    padding-left: 2px;
+  }
+
+  .assistant-prose code {
+    font-family: var(--font-mono);
+    font-size: 13.5px;
+    padding: 2px 5px;
+    background: #f1f0eb;
+    border-radius: 4px;
+    color: #383733;
+  }
+
+  /* 过程细轨道（思考与命令）：弱化、可折叠、页边微缩条感 */
+  .process-rail {
+    margin: 10px 0 18px 0;
+    border-left: 2px solid rgba(0, 0, 0, 0.08);
+    padding-left: 14px;
+    transition: border-color 0.2s;
+  }
+
+  .process-rail.active {
+    border-left-color: var(--accent-blue);
+  }
+
+  .process-toggle-bar {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: none;
+    border: none;
+    padding: 3px 6px 3px 0;
+    font-size: 12px;
+    font-family: var(--font-sans);
+    color: var(--text-tertiary);
+    cursor: pointer;
+    border-radius: 4px;
+    transition: color 0.15s;
+  }
+
+  .process-toggle-bar:hover {
+    color: var(--text-secondary);
+  }
+
+  .process-toggle-bar svg {
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .process-rail.expanded .process-toggle-bar svg {
+    transform: rotate(90deg);
+  }
+
+  .process-summary-tag {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: #f2f2ef;
+    padding: 1px 6px;
+    border-radius: 3px;
+    color: var(--text-secondary);
+  }
+
+  /* 过程展开容器 */
+  .process-content {
+    display: none;
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: var(--bg-subtle);
+    border-radius: 6px;
+    font-size: 13px;
+    border: 1px solid rgba(0,0,0,0.03);
+  }
+
+  .process-rail.expanded .process-content {
+    display: block;
+    animation: fadeIn 0.18s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-3px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .process-step {
+    margin-bottom: 12px;
+  }
+
+  .process-step:last-child {
+    margin-bottom: 0;
+  }
+
+  .step-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
+  .step-thought {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    font-style: italic;
+    background: rgba(0,0,0,0.015);
+    padding: 6px 10px;
+    border-radius: 4px;
+  }
+
+  .step-cmd-group {
+    background: #ffffff;
+    border: 1px solid var(--border-subtle);
+    border-radius: 5px;
+    overflow: hidden;
+    margin-top: 5px;
+  }
+
+  .step-cmd-row {
+    padding: 6px 10px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: #24292f;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    background: #fafaf8;
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+  }
+
+  .step-cmd-prompt {
+    color: var(--text-quaternary);
+    user-select: none;
+  }
+
+  .step-cmd-output {
+    padding: 6px 10px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: #57606a;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    background: #fff;
+  }
+
+  /* 打字光标 */
+  .typing-cursor {
+    display: inline-block;
+    width: 7px;
+    height: 15px;
+    background-color: var(--accent-blue);
+    vertical-align: -2px;
+    margin-left: 2px;
+    animation: blink 0.9s infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  /* 底部编辑器底盘 */
+  .input-panel {
+    padding: 12px 32px 20px;
+    max-width: 780px;
+    width: 100%;
+    margin: 0 auto;
+    flex-shrink: 0;
+  }
+
+  .input-box {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.04);
+    transition: border-color 0.15s, box-shadow 0.15s;
+    overflow: hidden;
+  }
+
+  .input-box:focus-within {
+    border-color: #8c8b85;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.07);
+  }
+
+  .editor-textarea {
+    width: 100%;
+    border: none;
+    outline: none;
+    resize: none;
+    font-family: var(--font-sans);
+    font-size: 14.5px;
+    line-height: 1.55;
+    color: var(--text-primary);
+    padding: 12px 14px 8px;
+    min-height: 48px;
+    max-height: 160px;
+    background: transparent;
+  }
+
+  .editor-textarea::placeholder {
+    color: var(--text-quaternary);
+  }
+
+  .input-meta-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px 8px;
+    font-size: 12px;
+    border-top: 1px solid rgba(0,0,0,0.03);
+    background: #fafaf9;
+  }
+
+  .meta-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+  }
+
+  .meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .meta-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    height: 28px;
+    padding: 0 12px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+  }
+
+  .action-btn-send {
+    background-color: #1a1a18;
+    color: #ffffff;
+  }
+
+  .action-btn-send:hover {
+    background-color: #333330;
+  }
+
+  .action-btn-stop {
+    background-color: #fee2e2;
+    color: #b91c1c;
+  }
+
+  .action-btn-stop:hover {
+    background-color: #fecaca;
+  }
+
+  /* 滚动条细致处理 */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(0,0,0,0.14);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(0,0,0,0.22);
+  }
+</style>
+</head>
+<body>
+
+  <!-- 左侧会话导航 -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="app-branding">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
+        <span>Wandesk 助理</span>
+      </div>
+    </div>
+
+    <div style="padding: 0 14px 6px;">
+      <button class="btn-new-chat" id="btnNewChat">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        新对话
+      </button>
+    </div>
+
+    <div class="sidebar-section-title">会话</div>
+
+    <ul class="session-list" id="sessionList">
+      <li class="session-item active" data-id="active-net">
+        <span class="session-title">检查网络信息</span>
+        <span class="status-pulse" id="activeIndicator" title="运行中"></span>
+      </li>
+      <li class="session-item">
+        <span class="session-title">整理工作区构建脚本</span>
+      </li>
+      <li class="session-item">
+        <span class="session-title">分析构建依赖耗时</span>
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <button class="btn-settings">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+        设置
+      </button>
+    </div>
+  </aside>
+
+  <!-- 右侧主文档工作台 -->
+  <main class="main-container">
+    <header class="top-bar">
+      <div class="top-session-info">
+        <span class="top-title" id="currentSessionTitle">检查网络信息</span>
+        <span class="top-status-badge" id="topStatusBadge">
+          <span style="width:5px; height:5px; border-radius:50%; background:currentColor;"></span>
+          <span id="topStatusText">正在执行任务...</span>
+        </span>
+      </div>
+      <div class="top-actions">
+        <span class="top-tag">UTF-8</span>
+      </div>
+    </header>
+
+    <!-- 文档卷轴内容区 -->
+    <div class="editor-canvas" id="canvasScroll">
+      <div class="document-body" id="documentBody">
+
+        <!-- 第 1 回合：简单打招呼 -->
+        <div class="turn-block">
+          <div class="user-turn">
+            <div class="user-query">你好</div>
+          </div>
+          <div class="assistant-prose">
+            <p>你好。有什么需要处理的，直接说。</p>
+          </div>
+        </div>
+
+        <!-- 第 2 回合：检查网络信息 -->
+        <div class="turn-block" id="turn-network">
+          <div class="user-turn">
+            <div class="user-query">检查网络信息</div>
+          </div>
+
+          <!-- 过程弱化细轨 (折叠批注感) -->
+          <div class="process-rail active" id="networkProcessRail">
+            <button class="process-toggle-bar" id="networkToggleBtn" type="button">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+              <span>推理与执行细节</span>
+              <span class="process-summary-tag">2 项思考 · 4 条命令</span>
+            </button>
+
+            <div class="process-content" id="networkProcessDetail">
+              <!-- 思考 1 -->
+              <div class="process-step">
+                <div class="step-label">思考</div>
+                <div class="step-thought">用户要看网络信息。先确认系统类型，再分别查接口、网关、DNS、代理和外网连通性。</div>
+              </div>
+
+              <!-- 命令 1 与 2 -->
+              <div class="process-step">
+                <div class="step-label">执行系统命令</div>
+                <div class="step-cmd-group">
+                  <div class="step-cmd-row">
+                    <span class="step-cmd-prompt">$</span>
+                    <span>uname -a</span>
+                  </div>
+                  <div class="step-cmd-output">Darwin woodchange-MacBook-Air 25.6.0 arm64</div>
+                  
+                  <div class="step-cmd-row" style="border-top: 1px solid rgba(0,0,0,0.04);">
+                    <span class="step-cmd-prompt">$</span>
+                    <span>ifconfig | grep "inet "</span>
+                  </div>
+                  <div class="step-cmd-output">inet 192.168.50.23 netmask 0xffffff00</div>
+                </div>
+              </div>
+
+              <!-- 思考 2 -->
+              <div class="process-step">
+                <div class="step-label">思考</div>
+                <div class="step-thought">macOS 环境。继续查网关、DNS、代理和连通性。</div>
+              </div>
+
+              <!-- 命令 3 与 4 -->
+              <div class="process-step">
+                <div class="step-label">执行系统命令</div>
+                <div class="step-cmd-group">
+                  <div class="step-cmd-row">
+                    <span class="step-cmd-prompt">$</span>
+                    <span>netstat -rn | grep default</span>
+                  </div>
+                  <div class="step-cmd-output">default 192.168.50.1 UGScg en0</div>
+
+                  <div class="step-cmd-row" style="border-top: 1px solid rgba(0,0,0,0.04);">
+                    <span class="step-cmd-prompt">$</span>
+                    <span>curl -sI https://www.apple.com | head -1</span>
+                  </div>
+                  <div class="step-cmd-output">HTTP/2 200</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 助理正文区：初始化时为空，流式输入 -->
+          <div class="assistant-prose" id="networkProseOutput">
+            <span id="streamingTarget"></span><span class="typing-cursor" id="typingCursor"></span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 底部输入交互条 -->
+    <footer class="input-panel">
+      <div class="input-box">
+        <textarea 
+          id="userInput" 
+          class="editor-textarea" 
+          rows="1" 
+          placeholder="请输入请求或指令 (回车发送，Shift + 回车换行)..."></textarea>
+        
+        <div class="input-meta-bar">
+          <div class="meta-left">
+            <span class="meta-item" title="当前工作目录">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+              ~/wandesk
+            </span>
+            <span class="meta-item" title="底层模型">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+              wandesk-agent
+            </span>
+          </div>
+
+          <div class="meta-right">
+            <button id="actionBtn" class="action-btn action-btn-stop" type="button">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+              </svg>
+              <span>停止</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </main>
+
+<script>
+(function() {
+  const canvasScroll = document.getElementById('canvasScroll');
+  const documentBody = document.getElementById('documentBody');
+  const networkProcessRail = document.getElementById('networkProcessRail');
+  const networkToggleBtn = document.getElementById('networkToggleBtn');
+  const networkProseOutput = document.getElementById('networkProseOutput');
+  const streamingTarget = document.getElementById('streamingTarget');
+  const typingCursor = document.getElementById('typingCursor');
+  const actionBtn = document.getElementById('actionBtn');
+  const topStatusBadge = document.getElementById('topStatusBadge');
+  const topStatusText = document.getElementById('topStatusText');
+  const activeIndicator = document.getElementById('activeIndicator');
+  const userInput = document.getElementById('userInput');
+  const btnNewChat = document.getElementById('btnNewChat');
+
+  // 预置第二回合待流式输出的文本
+  const networkMarkdownText = 
+`网络状况正常，摘要如下：
+
+- 接口 en0，内网地址 192.168.50.23，网关 192.168.50.1
+- DNS 解析到 198.18.0.2，说明本机代理处于 TUN 模式，流量全部经代理
+- 外网连通性正常，apple.com 返回 HTTP 200
+
+如需查看完整的路由表或代理配置，告诉我。`;
+
+  let isRunning = true;
+  let streamTimer = null;
+  let streamIndex = 0;
+
+  // 绑定过程展开/折叠
+  networkToggleBtn.addEventListener('click', () => {
+    networkProcessRail.classList.toggle('expanded');
+  });
+
+  // 解析并流式渲染纯文本/轻量 markdown 块
+  function renderMarkdownToElement(text, targetEl) {
+    const lines = text.split('\n');
+    let html = '';
+    let inList = false;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
+
+      if (trimmed.startsWith('- ')) {
+        if (!inList) {
+          html += '<ul>';
+          inList = true;
+        }
+        const itemContent = trimmed.substring(2);
+        html += `<li>${escapeAndInlineCode(itemContent)}</li>`;
+      } else {
+        if (inList) {
+          html += '</ul>';
+          inList = false;
+        }
+        if (trimmed.length > 0) {
+          html += `<p>${escapeAndInlineCode(trimmed)}</p>`;
+        }
+      }
+    }
+    if (inList) html += '</ul>';
+    targetEl.innerHTML = html;
+  }
+
+  function escapeAndInlineCode(str) {
+    const escaped = str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    // 将已知的关键字段或代码包裹进 <code>
+    return escaped.replace(/(en0|192\.168\.50\.23|192\.168\.50\.1|198\.18\.0\.2|TUN|HTTP 200|apple\.com)/g, '<code>$1</code>');
+  }
+
+  // 状态机切换
+  function setAgentRunning(running) {
+    isRunning = running;
+    if (running) {
+      actionBtn.className = 'action-btn action-btn-stop';
+      actionBtn.innerHTML = `
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+        </svg>
+        <span>停止</span>
+      `;
+      topStatusBadge.style.display = 'inline-flex';
+      topStatusText.textContent = '正在执行任务...';
+      if (activeIndicator) activeIndicator.style.display = 'block';
+    } else {
+      actionBtn.className = 'action-btn action-btn-send';
+      actionBtn.innerHTML = `
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+        <span>发送</span>
+      `;
+      topStatusBadge.style.display = 'none';
+      if (activeIndicator) activeIndicator.style.display = 'none';
+      if (typingCursor) typingCursor.style.display = 'none';
+      if (networkProcessRail) networkProcessRail.classList.remove('active');
+    }
+  }
+
+  // 开始流式打字输出
+  function startStreamingInitialTurn() {
+    streamIndex = 0;
+    streamTimer = setInterval(() => {
+      if (!isRunning) {
+        clearInterval(streamTimer);
+        return;
+      }
+      streamIndex += 2; // 打字步进
+      const slice = networkMarkdownText.substring(0, streamIndex);
+      renderMarkdownToElement(slice, streamingTarget);
+      canvasScroll.scrollTop = canvasScroll.scrollHeight;
+
+      if (streamIndex >= networkMarkdownText.length) {
+        clearInterval(streamTimer);
+        renderMarkdownToElement(networkMarkdownText, streamingTarget);
+        setAgentRunning(false);
+      }
+    }, 28);
+  }
+
+  // 停止按钮事件
+  actionBtn.addEventListener('click', () => {
+    if (isRunning) {
+      if (streamTimer) clearInterval(streamTimer);
+      setAgentRunning(false);
+      if (typingCursor) typingCursor.style.display = 'none';
+    } else {
+      handleUserSubmit();
+    }
+  });
+
+  // 输入框自增高度与快捷键
+  userInput.addEventListener('input', () => {
+    userInput.style.height = 'auto';
+    userInput.style.height = Math.min(userInput.scrollHeight, 160) + 'px';
+  });
+
+  userInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (!isRunning) {
+        handleUserSubmit();
+      }
+    }
+  });
+
+  // 提交并模拟全新回合
+  function handleUserSubmit() {
+    const text = userInput.value.trim();
+    if (!text) return;
+    userInput.value = '';
+    userInput.style.height = 'auto';
+
+    // 1. 插入用户消息
+    const turnDiv = document.createElement('div');
+    turnDiv.className = 'turn-block';
+    
+    const userTurn = document.createElement('div');
+    userTurn.className = 'user-turn';
+    userTurn.innerHTML = `<div class="user-query">${escapeHtml(text)}</div>`;
+    turnDiv.appendChild(userTurn);
+
+    // 2. 插入过程条（思考 + ls -la 命令）
+    const processRail = document.createElement('div');
+    processRail.className = 'process-rail active';
+    const railId = 'rail_' + Date.now();
+    processRail.innerHTML = `
+      <button class="process-toggle-bar" type="button">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+        <span>推理与执行细节</span>
+        <span class="process-summary-tag">1 项思考 · 1 条命令</span>
+      </button>
+      <div class="process-content">
+        <div class="process-step">
+          <div class="step-label">思考</div>
+          <div class="step-thought">收到用户指令，检查当前工作目录中的项目文件并生成概览。</div>
+        </div>
+        <div class="process-step">
+          <div class="step-label">执行系统命令</div>
+          <div class="step-cmd-group">
+            <div class="step-cmd-row">
+              <span class="step-cmd-prompt">$</span>
+              <span>ls -la</span>
+            </div>
+            <div class="step-cmd-output">total 32
+drwxr-xr-x   6 woodchange  staff   192 Mar 29 10:14 .
+drwxr-xr-x  14 woodchange  staff   448 Mar 29 09:30 ..
+-rw-r--r--   1 woodchange  staff   582 Mar 29 09:45 package.json
+-rw-r--r--   1 woodchange  staff  1240 Mar 29 10:12 README.md
+drwxr-xr-x   4 woodchange  staff   128 Mar 29 10:14 src</div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // 绑定展开/折叠
+    const toggleBtn = processRail.querySelector('.process-toggle-bar');
+    toggleBtn.addEventListener('click', () => {
+      processRail.classList.toggle('expanded');
+    });
+
+    turnDiv.appendChild(processRail);
+
+    // 3. 准备助理正文承载
+    const proseOutput = document.createElement('div');
+    proseOutput.className = 'assistant-prose';
+    const contentSpan = document.createElement('span');
+    const cursorSpan = document.createElement('span');
+    cursorSpan.className = 'typing-cursor';
+    proseOutput.appendChild(contentSpan);
+    proseOutput.appendChild(cursorSpan);
+    turnDiv.appendChild(proseOutput);
+
+    documentBody.appendChild(turnDiv);
+    canvasScroll.scrollTop = canvasScroll.scrollHeight;
+
+    setAgentRunning(true);
+
+    // 模拟约 1.2 秒后流式输出回复
+    const replyText = `已读取当前目录 \`~/wandesk\`，包含 \`package.json\`、\`README.md\` 与 \`src\` 源码目录。\n\n如需继续审查具体文件或构建项目，请随时指定。`;
+    
+    setTimeout(() => {
+      let idx = 0;
+      streamTimer = setInterval(() => {
+        if (!isRunning) {
+          clearInterval(streamTimer);
+          cursorSpan.remove();
+          processRail.classList.remove('active');
+          return;
+        }
+        idx += 2;
+        renderMarkdownToElement(replyText.substring(0, idx), contentSpan);
+        canvasScroll.scrollTop = canvasScroll.scrollHeight;
+
+        if (idx >= replyText.length) {
+          clearInterval(streamTimer);
+          renderMarkdownToElement(replyText, contentSpan);
+          cursorSpan.remove();
+          processRail.classList.remove('active');
+          setAgentRunning(false);
+        }
+      }, 25);
+    }, 1100);
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  // 新对话
+  btnNewChat.addEventListener('click', () => {
+    location.reload();
+  });
+
+  // 页面加载阶段：先保持过程已就绪的运行状态，2 秒后启动正文流式输出
+  setAgentRunning(true);
+  setTimeout(() => {
+    if (isRunning) {
+      startStreamingInitialTurn();
+    }
+  }, 2000);
+
+})();
+</script>
+</body>
+</html>

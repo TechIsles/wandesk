@@ -29,9 +29,9 @@ export function ThinkItem({ row, compact }: { row: Row; compact?: boolean }) {
     const [open, setOpen] = useState(false);
     const thinking = Boolean(row.streaming && !row.content);
     return (
-        <div className={`step${open ? ' open' : ''}${compact ? ' sm' : ''}`}>
+        <div className={`step k-think${open ? ' open' : ''}${compact ? ' sm' : ''}`}>
             <button className="step-head" onClick={() => setOpen(!open)}>
-                <StepIcon icon={<Icon name="spark" size={compact ? 12 : 14} />} />
+                <StepIcon icon={<Icon name="spark" size={compact ? 12 : 13} />} />
                 <span className="step-label"><i className={thinking ? 'sheen' : undefined}>{thinking ? 'Thinking' : 'Thought'}</i></span>
             </button>
             {open && (

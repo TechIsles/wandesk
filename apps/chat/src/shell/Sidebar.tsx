@@ -2,7 +2,7 @@
 // Hovering a row reveals its actions (pin / rename / delete); a running row shows a breathing dot.
 import { useEffect, useState } from 'react';
 
-import { Icon, Mark } from '../icons/Icon';
+import { Icon } from '../icons/Icon';
 import { Sheet } from '../overlay/Sheet';
 import {
     createDraft, loadRuns, openConversation, removeConversation, renameConversation,
@@ -12,7 +12,7 @@ import { useShell } from './layout';
 
 export function Sidebar() {
     const shell = useShell();
-    const { conversations, currentId, liveIds, meta } = useConversation();
+    const { conversations, currentId, liveIds } = useConversation();
     const [renaming, setRenaming] = useState<Conversation | null>(null);
     const [renameText, setRenameText] = useState('');
     const [removing, setRemoving] = useState<Conversation | null>(null);
@@ -74,22 +74,18 @@ export function Sidebar() {
             {shell.drawer && <div className="side-veil" onClick={shell.closeDrawer} />}
 
             <aside className={`sidebar${shell.collapsed ? ' folded' : ''}${shell.drawer ? ' open' : ''}`}>
+                {/* New conversation is an action row, not a list item — always stays at the top, outside the scroll area */}
                 <div className="side-head">
-                    <Mark size={24} />
-                    <span className="side-brand">Assistant</span>
-                    <span className="grow" />
+                    <button
+                        className="side-new"
+                        onClick={() => { shell.showConversation(); createDraft(); }}
+                    >
+                        <Icon name="plus" size={15} /><span>New conversation</span>
+                    </button>
                     <button className="icon-btn fold-btn" title="Collapse sidebar" onClick={shell.toggleCollapsed}>
                         <Icon name="panel" size={16} />
                     </button>
                 </div>
-
-                {/* New conversation is an action row, not a list item — always stays at the top, outside the scroll area */}
-                <button
-                    className="side-new"
-                    onClick={() => { shell.showConversation(); createDraft(); }}
-                >
-                    <Icon name="compose" size={16} /><span>New conversation</span>
-                </button>
 
                 <div className="side-scroll">
                     {pinned.length > 0 && (<>
@@ -107,7 +103,6 @@ export function Sidebar() {
                     <button className={`side-settings${shell.page === 'settings' ? ' on' : ''}`} onClick={shell.showSettings}>
                         <Icon name="settings" size={15} /><span>Settings</span>
                     </button>
-                    <span className="side-meta clip">{meta.version ? `v${meta.version}` : ''}</span>
                 </div>
             </aside>
 
