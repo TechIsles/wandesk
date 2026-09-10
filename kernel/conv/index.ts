@@ -23,7 +23,7 @@ import { createRuns } from "./server/runs.js";
 import { createApi } from "./server/api.js";
 import { createFiles } from "./server/files.js";
 import { kernelDir, workspace } from "../paths.js";
-import { readSettings, writeSettings, modelConfig } from "../data/settings.js";
+import { readSettings, writeSettings, modelConfig, agentLimits } from "../data/settings.js";
 import { AGENT_LIMITS } from "../config.js";
 import { appsBlock, languageBlock } from "../apps/scan.js";
 import { memoryBlock } from "../memory/index.js";
@@ -37,24 +37,30 @@ const buildConfig = () => ({
   model: "",
   instructions: "You are a coding agent. Before calling a tool, briefly state its purpose in the summary.",
   workdir: workspace(),
-  maxRounds: AGENT_LIMITS.maxRounds,
   errorMaxChars: AGENT_LIMITS.errorMaxChars,
   retry: { enabled: true, maxRetries: 3, baseDelayMs: 1000, maxDelayMs: 30000, retryAfterStream: false },
   modelOptions: {},
-  compaction: {
-    contextWindowTokens: 128000, foldRatio: 0.8, tailKeepChars: 40000,
-    summaryMinChars: 80, callArgsMaxChars: 2000, callOutputMaxChars: 4000,
-    mechanicalItemMaxChars: 160,
-    prompt: [
-      "You are compacting a conversation so the agent can continue working seamlessly.",
-      "Preserve the user's goals and constraints, what has already been done, key facts, paths, commands, errors, unfinished parts, and the next steps.",
-      "Output only continuous summary prose in English — no tool calls, tags, or code fences.",
-    ].join("\n"),
+  // The three user-tunable limits are getters: runs.js spreads `config` when a run starts, so every
+  // run picks up the settings as they are at that moment without the run loop knowing about settings.
+  get maxRounds() { return agentLimits().maxRounds; },
+  get compaction() {
+    const limits = agentLimits();
+    return {
+      // `contextWindowTokens × foldRatio` is the watermark; the user sets the watermark directly, so foldRatio is 1.
+      // Compaction off = a watermark that is never reached.
+      contextWindowTokens: limits.compactEnabled ? limits.compactTokens : Number.MAX_SAFE_INTEGER, foldRatio: 1,
+      tailKeepChars: 40000,
+      summaryMinChars: 80, callArgsMaxChars: 2000, callOutputMaxChars: 4000,
+      mechanicalItemMaxChars: 160,
+      prompt: limits.compactPrompt,
+    };
   },
-  bash: {
-    executable: WINDOWS ? "cmd.exe" : "/bin/zsh",
-    args: WINDOWS ? ["/d", "/s", "/c"] : ["-lc"],
-    minTimeoutMs: 100, defaultTimeoutMs: 120000, maxTimeoutMs: 600000, maxOutputChars: 40000,
+  get bash() {
+    return {
+      executable: WINDOWS ? "cmd.exe" : "/bin/zsh",
+      args: WINDOWS ? ["/d", "/s", "/c"] : ["-lc"],
+      minTimeoutMs: 100, defaultTimeoutMs: 120000, maxTimeoutMs: 600000, maxOutputChars: agentLimits().toolOutputChars,
+    };
   },
   web: { host: "127.0.0.1", port: 0, dataFile: path.join(kernelDir(), "conversations.db") },
   images: { maxBytes: 8 * 1024 * 1024, maxPerMessage: 10, maxLiveToolImages: 2, directory: path.join(kernelDir(), "files") },

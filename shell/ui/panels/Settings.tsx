@@ -16,6 +16,9 @@ import "./Settings.css";
 type Source = "wandesk" | "custom";
 type Account = { signedIn: boolean; source: Source; email?: string; credits?: number | null; rechargeUrl?: string; revoked?: boolean };
 type Custom = { apiUrl: string; apiKey: string; model: string };
+type Context = { compactEnabled: "on" | "off"; compactTokens: string; toolOutputChars: string; toolRoundsLimit: "on" | "off"; toolRounds: string; compactPrompt: string };
+const CONTEXT_DEFAULTS: Context = { compactEnabled: "on", compactTokens: "100000", toolOutputChars: "40000", toolRoundsLimit: "on", toolRounds: "32", compactPrompt: "" };
+const sameContext = (a: Context, b: Context) => (Object.keys(a) as (keyof Context)[]).every((k) => a[k] === b[k]);
 
 const isComplete = (c: Custom) => Boolean(c.apiUrl.trim() && c.apiKey.trim() && c.model.trim());
 
@@ -26,10 +29,12 @@ export function Settings() {
   const [savedCustom, setSavedCustom] = useState<Custom>({ apiUrl: "", apiKey: "", model: "" });
   const [system, setSystem] = useState("");
   const [savedSystem, setSavedSystem] = useState("");
+  const [ctx, setCtx] = useState<Context>(CONTEXT_DEFAULTS);
+  const [savedCtx, setSavedCtx] = useState<Context>(CONTEXT_DEFAULTS);
   const [account, setAccount] = useState<Account | null>(null);
   const [waiting, setWaiting] = useState(false);
   const [accountError, setAccountError] = useState("");
-  const [flash, setFlash] = useState<"custom" | "system" | "">("");
+  const [flash, setFlash] = useState<"custom" | "system" | "context" | "">("");
 
   const loadSettings = () =>
     api<{ settings?: Record<string, string>; source?: Source }>("/api/settings").then((j) => {
@@ -37,6 +42,15 @@ export function Settings() {
       const c = { apiUrl: s.apiUrl || "", apiKey: s.apiKey || "", model: s.model || "" }; // apiKey comes back as a ******** placeholder
       setCustom(c); setSavedCustom(c);
       setSystem(s.system || ""); setSavedSystem(s.system || "");
+      const c2: Context = {
+        compactEnabled: s.compactEnabled === "off" ? "off" : "on",
+        compactTokens: s.compactTokens || CONTEXT_DEFAULTS.compactTokens,
+        toolOutputChars: s.toolOutputChars || CONTEXT_DEFAULTS.toolOutputChars,
+        toolRoundsLimit: s.toolRoundsLimit === "off" ? "off" : "on",
+        toolRounds: s.toolRounds || CONTEXT_DEFAULTS.toolRounds,
+        compactPrompt: s.compactPrompt || "",
+      };
+      setCtx(c2); setSavedCtx(c2);
       setSource(j.source === "custom" ? "custom" : "wandesk");
       setLoading(false);
     });
@@ -72,6 +86,19 @@ export function Settings() {
     setSavedCustom(custom); setSource("custom");
     setFlash("custom"); window.setTimeout(() => setFlash(""), 2000);
   };
+  const saveContext = async () => {
+    await post("/api/settings", ctx);
+    setSavedCtx(ctx);
+    setFlash("context"); window.setTimeout(() => setFlash(""), 2000);
+  };
+  const ctxNum = (key: "compactTokens" | "toolOutputChars" | "toolRounds", min: number, max: number) => (
+    <input
+      className="set-input set-num"
+      type="number" min={min} max={max} step={key === "toolRounds" ? 1 : 1000}
+      value={ctx[key]}
+      onChange={(e) => setCtx((c) => ({ ...c, [key]: e.target.value }))}
+    />
+  );
   const saveSystem = async () => {
     await post("/api/settings", { system });
     setSavedSystem(system);
@@ -159,6 +186,58 @@ export function Settings() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* ── Context management ── */}
+      <h2 className="set-title set-title-gap">{t("settings.context")}</h2>
+      <p className="set-hint">{t("settings.context.hint")}</p>
+
+      <div className="set-grid">
+        <label className="set-grid-label">{t("settings.context.compact")}</label>
+        <div className="set-grid-field">
+          <div className="set-inline-row">
+            <select className="set-input set-select" value={ctx.compactEnabled} onChange={(e) => setCtx((c) => ({ ...c, compactEnabled: e.target.value as "on" | "off" }))}>
+              <option value="on">{t("settings.context.compact.on")}</option>
+              <option value="off">{t("settings.context.compact.off")}</option>
+            </select>
+            {ctx.compactEnabled === "on" && <>{ctxNum("compactTokens", 1000, 10000000)}<span className="set-unit">{t("settings.context.tokens")}</span></>}
+          </div>
+          <p className="set-field-hint">{t("settings.context.compact.hint")}</p>
+        </div>
+
+        <label className="set-grid-label">{t("settings.context.toolOutput")}</label>
+        <div className="set-grid-field">
+          <div className="set-inline-row">{ctxNum("toolOutputChars", 1000, 200000)}<span className="set-unit">{t("settings.context.chars")}</span></div>
+          <p className="set-field-hint">{t("settings.context.toolOutput.hint")}</p>
+        </div>
+
+        <label className="set-grid-label">{t("settings.context.rounds")}</label>
+        <div className="set-grid-field">
+          <div className="set-inline-row">
+            <select className="set-input set-select" value={ctx.toolRoundsLimit} onChange={(e) => setCtx((c) => ({ ...c, toolRoundsLimit: e.target.value as "on" | "off" }))}>
+              <option value="on">{t("settings.context.rounds.on")}</option>
+              <option value="off">{t("settings.context.rounds.off")}</option>
+            </select>
+            {ctx.toolRoundsLimit === "on" && <>{ctxNum("toolRounds", 1, 1000)}<span className="set-unit">{t("settings.context.roundsUnit")}</span></>}
+          </div>
+          <p className="set-field-hint">{t("settings.context.rounds.hint")}</p>
+        </div>
+
+        <label className="set-grid-label">{t("settings.context.prompt")}</label>
+        <div className="set-grid-field">
+          <textarea
+            className="set-input set-textarea"
+            rows={6}
+            value={ctx.compactPrompt}
+            placeholder={t("settings.context.prompt.placeholder")}
+            onChange={(e) => setCtx((c) => ({ ...c, compactPrompt: e.target.value }))}
+          />
+          <p className="set-field-hint">{t("settings.context.prompt.hint")}</p>
+        </div>
+      </div>
+      <div className="set-actions">
+        <button className="set-save" onClick={saveContext} disabled={sameContext(ctx, savedCtx)}>{t("settings.save")}</button>
+        {flash === "context" && <span className="set-ok">{t("settings.saved")}</span>}
       </div>
 
       {/* ── System prompt ── */}

@@ -50,3 +50,29 @@
 .set-title-gap { margin-top: 26px; }
 .set-account-who { font-size: 13px; font-weight: 600; color: var(--ink); }
 .set-account-credits { font-size: 12.5px; color: var(--ink2); margin-top: 4px; }
+
+/* ── Context management: label column + field column ── */
+.set-grid { display: grid; grid-template-columns: 150px 1fr; gap: 18px 16px; align-items: start; }
+.set-grid-label { font-size: 13px; color: var(--ink2); padding-top: 9px; }
+.set-grid-field { min-width: 0; }
+.set-inline-row { display: flex; align-items: center; gap: 10px; }
+.set-select { width: 160px; flex: none; }
+.set-num { flex: 1; min-width: 0; }
+.set-unit { font-size: 12.5px; color: var(--ink3); flex: none; }
+.set-field-hint { margin: 6px 0 0; font-size: 12px; color: var(--ink3); line-height: 1.6; }
+@media (max-width: 720px) { .set-grid { grid-template-columns: 1fr; gap: 6px 0; } .set-grid-label { padding-top: 0; } .set-grid-field { margin-bottom: 12px; } }
+
+/* ── About ── */
+.about-head { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+.about-mark { width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; font-size: 26px; font-weight: 800; color: #fff; background: linear-gradient(160deg, #5aa0f6, #2f6fe0); box-shadow: 0 6px 16px -6px rgba(47, 111, 224, .5); }
+.about-name { margin: 0; font-size: 20px; }
+.about-version { margin: 2px 0 0; font-size: 12.5px; color: var(--ink3); }
+.about-tagline { margin: 0 0 18px; font-size: 13.5px; line-height: 1.65; color: var(--ink2); }
+.about-links { display: flex; flex-direction: column; gap: 8px; margin-bottom: 22px; }
+.about-link { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border: 1px solid var(--line2); border-radius: 10px; text-decoration: none; color: inherit; background: #fff; transition: background .12s, border-color .12s; }
+.about-link:hover { background: var(--bg); border-color: #c9cdd6; }
+.about-link-ic { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: var(--bg); font-size: 15px; flex: none; }
+.about-link-body { display: flex; flex-direction: column; min-width: 0; }
+.about-link-title { font-size: 13px; font-weight: 600; color: var(--ink); }
+.about-link-url { font-size: 12px; color: var(--ink3); font-family: ui-monospace, "SF Mono", Menlo, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.about-sub { margin: 18px 0 6px; font-size: 13.5px; font-weight: 700; color: var(--ink); }

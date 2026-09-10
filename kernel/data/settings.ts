@@ -55,3 +55,32 @@ export const currentLanguage = (): Language => {
   const saved = readSettings().language;
   return saved === "zh" || saved === "en" ? saved : "en";
 };
+
+/** Context management, user-tunable from the shell's settings. Empty / invalid values fall back to the defaults. */
+export const CONTEXT_DEFAULTS = { compactTokens: 100000, toolOutputChars: 40000, toolRounds: 32 };
+export const DEFAULT_COMPACT_PROMPT = [
+  "You are compacting a conversation so the agent can continue working seamlessly.",
+  "Preserve the user's goals and constraints, what has already been done, key facts, paths, commands, errors, unfinished parts, and the next steps.",
+  "Output only continuous summary prose in English — no tool calls, tags, or code fences.",
+].join("\n");
+
+const bounded = (v: string | undefined, fallback: number, min: number, max: number) => {
+  const n = Number(v);
+  return Number.isFinite(n) && n >= min && n <= max ? Math.round(n) : fallback;
+};
+
+export const agentLimits = (s: Settings = readSettings()) => {
+  const compactEnabled = s.compactEnabled !== "off";
+  const toolRoundsLimited = s.toolRoundsLimit !== "off";
+  const toolRounds = bounded(s.toolRounds, CONTEXT_DEFAULTS.toolRounds, 1, 1000);
+  return {
+    compactEnabled,
+    compactTokens: bounded(s.compactTokens, CONTEXT_DEFAULTS.compactTokens, 1000, 10_000_000),
+    compactPrompt: (s.compactPrompt || "").trim() || DEFAULT_COMPACT_PROMPT,
+    toolOutputChars: bounded(s.toolOutputChars, CONTEXT_DEFAULTS.toolOutputChars, 1000, 200_000),
+    toolRoundsLimited,
+    toolRounds,
+    /** What the loop actually gets: the limit, or effectively no limit. */
+    maxRounds: toolRoundsLimited ? toolRounds : Number.MAX_SAFE_INTEGER,
+  };
+};

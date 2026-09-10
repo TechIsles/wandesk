@@ -15,7 +15,7 @@ import { complete } from "../ai/index.js";
 import { runAgent } from "../agent/index.js";
 import { EVENTS } from "../ai/events.js";
 import { AGENT_LIMITS } from "../config.js";
-import { modelConfig } from "../data/settings.js";
+import { modelConfig, agentLimits } from "../data/settings.js";
 import { memoryBlock } from "../memory/index.js";
 import { appsBlock, languageBlock } from "../apps/scan.js";
 import { startActivity, finishActivity } from "../data/activity.js";
@@ -107,11 +107,11 @@ const runOnce = async (appId: string, req: AiRequest, hooks: RunHooks = {}) => {
     model: cfg.model,
     instructions: buildInstructions(req.system),
     input: [textItem(buildPrompt(req))],
-    maxRounds: AGENT_LIMITS.maxRounds,
+    maxRounds: agentLimits().maxRounds,
     errorMaxChars: AGENT_LIMITS.errorMaxChars,
     retry: AGENT_LIMITS.retry,
     workdir: workspace(),
-    bash: AGENT_LIMITS.bash,
+    bash: { ...AGENT_LIMITS.bash, maxOutputChars: agentLimits().toolOutputChars },
     emit: (name: string, payload: any) => hooks.onEvent?.(name, payload),
   });
   const text = (result.items || [])
