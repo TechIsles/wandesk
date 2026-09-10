@@ -9,6 +9,7 @@ export const EV = Object.freeze({
   UI_OPEN_APP: "ui.openApp",          // An app is asking the shell to open another app
   UI_OPEN_EXTERNAL: "ui.openExternal",
   LANGUAGE_CHANGED: "language.changed", // The UI language changed (toggled in settings) —— carries { language }
+  ACCOUNT_CHANGED: "account.changed",   // Signed in to / out of the Wandesk account —— carries { signedIn, email? }
 });
 
 export type EventName = (typeof EV)[keyof typeof EV];

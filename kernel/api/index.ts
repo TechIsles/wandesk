@@ -5,6 +5,7 @@ import { handleAppsApi } from "./apps.js";
 import { handleAppApi } from "./app.js";
 import { handleChatApi } from "./chat.js";
 import { handleSettingsApi, handleSettingsTest } from "./settings.js";
+import { handleAccountApi } from "./account.js";
 import { handleWallpaperApi } from "./wallpaper.js";
 import { convApi } from "../conv/index.js";
 import { runtimeOrigin } from "../../runtime/supervisor.js";
@@ -31,6 +32,7 @@ export const handleApi = async (req: IncomingMessage, res: ServerResponse): Prom
   if (path.startsWith("/api/chat")) return handleChatApi(req, res, path.slice("/api/chat".length));
   if (path === "/api/settings/test" && req.method === "POST") return handleSettingsTest(req, res);
   if (path === "/api/settings") return handleSettingsApi(req, res);
+  if (path.startsWith("/api/account")) return handleAccountApi(req, res, path.slice("/api/account".length));
   if (path.startsWith("/api/wallpaper")) return handleWallpaperApi(req, res, path.slice("/api/wallpaper".length));
 
   return false;
