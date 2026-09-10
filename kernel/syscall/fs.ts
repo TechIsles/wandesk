@@ -48,6 +48,14 @@ export const fsWrite = (rel: string, content: string) => {
   return { path: path.relative(workspace(), abs) };
 };
 
+/** Binary write: the app hands over base64 (images, audio, video). */
+export const fsWriteBase64 = (rel: string, b64: string) => {
+  const abs = resolve(rel);
+  fs.mkdirSync(path.dirname(abs), { recursive: true });
+  fs.writeFileSync(abs, Buffer.from(String(b64 || ""), "base64"));
+  return { path: path.relative(workspace(), abs) };
+};
+
 export const fsMkdir = (rel: string) => {
   fs.mkdirSync(resolve(rel), { recursive: true });
   return { ok: true };

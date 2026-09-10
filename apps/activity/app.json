@@ -1,0 +1,9 @@
+{
+  "id": "activity",
+  "name": "Activity",
+  "icon": "📊",
+  "description": "Activity monitor: every AI call made by any app, with its status, plus the conversations that are running right now.",
+  "mounts": {
+    "window": "/"
+  }
+}

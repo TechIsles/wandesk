@@ -7,9 +7,9 @@ import type { IncomingMessage, ServerResponse } from "http";
 import { json, readJson } from "./http.js";
 import { appAsset, appServerCode } from "../apps/scan.js";
 import { linkAppDb } from "../syscall/db.js";
-import { aiAsk, aiRun, aiStream } from "../syscall/ai.js";
+import { aiAsk, aiRun, aiStream, aiActivity } from "../syscall/ai.js";
 import { procSpawn, procList, procLog, procKill, procExec } from "../syscall/proc.js";
-import { fsList, fsRead, fsReadBase64, fsWrite, fsMkdir, fsDelete } from "../syscall/fs.js";
+import { fsList, fsRead, fsReadBase64, fsWrite, fsWriteBase64, fsMkdir, fsDelete } from "../syscall/fs.js";
 import { uiToast, uiOpenApp, uiOpenExternal } from "../syscall/ui.js";
 
 type Body = Record<string, any>;
@@ -28,6 +28,7 @@ const HANDLERS: Record<string, (appId: string, body: Body) => unknown | Promise<
   // ── env.AI ──
   "ai-ask": (appId, b) => aiAsk(appId, { summary: b.summary, prompt: b.prompt, system: b.system, data: b.data }),
   "ai-run": (appId, b) => aiRun(appId, { summary: b.summary, prompt: b.prompt, system: b.system, data: b.data }),
+  "ai-activity": (appId, b) => aiActivity(appId, Number(b.limit) || 100),
 
   // ── env.PROC ──
   "proc-spawn": (appId, b) => procSpawn(appId, String(b.command || ""), Array.isArray(b.args) ? b.args.map(String) : [], b.cwd),
@@ -41,6 +42,7 @@ const HANDLERS: Record<string, (appId: string, body: Body) => unknown | Promise<
   "fs-read": (_appId, b) => ({ content: fsRead(String(b.path || "")) }),
   "fs-read-b64": (_appId, b) => ({ b64: fsReadBase64(String(b.path || "")) }),
   "fs-write": (_appId, b) => fsWrite(String(b.path || ""), String(b.content ?? "")),
+  "fs-write-b64": (_appId, b) => fsWriteBase64(String(b.path || ""), String(b.b64 ?? "")),
   "fs-mkdir": (_appId, b) => fsMkdir(String(b.path || "")),
   "fs-delete": (_appId, b) => fsDelete(String(b.path || "")),
 

@@ -1,9 +1,0 @@
-{
-  "id": "imagine",
-  "name": "Imagine",
-  "icon": "💭",
-  "description": "A creative-branching canvas: turn one sentence into an HTML design draft, keep branching from any version into a tree, and click a node to open it full-size in a new window.",
-  "mounts": {
-    "window": "/"
-  }
-}

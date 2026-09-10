@@ -18,7 +18,7 @@ import { AGENT_LIMITS } from "../config.js";
 import { modelConfig, agentLimits } from "../data/settings.js";
 import { memoryBlock } from "../memory/index.js";
 import { appsBlock, languageBlock } from "../apps/scan.js";
-import { startActivity, finishActivity } from "../data/activity.js";
+import { startActivity, finishActivity, listActivity, runningCount } from "../data/activity.js";
 import { workspace } from "../paths.js";
 import { broadcast } from "../realtime.js";
 
@@ -67,6 +67,9 @@ const track = (appId: string, summary: string) => {
     fail: (detail: string) => { finishActivity(id, "error", detail); broadcast("activity.end", { id, status: "error" }); },
   };
 };
+
+// ── activity: the ledger of who called the AI, for the Activity app ─────────────────
+export const aiActivity = (_appId: string, limit = 100) => ({ items: listActivity(limit), running: runningCount() });
 
 // ── ask: one-shot completion ────────────────────────────────────────────
 export const aiAsk = async (appId: string, req: AiRequest) => {
