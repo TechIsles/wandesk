@@ -6,7 +6,7 @@ import { t } from './i18n';
 export type Wallpaper = { id: string; name: string; css: string };
 
 // Built-in wallpapers. Each SVG entry must have a matching file in ui/public/wallpapers/;
-// linen / clouds / ink are pure CSS and need no file. The first entry is the default/fallback.
+// linen / clouds / ink are pure CSS and need no file. The default is set below, not by list order.
 export const WALLPAPERS: Wallpaper[] = [
   { id: 'bokeh',   name: 'Bokeh Morning', css: 'background:#3f9fb0 url(/wallpapers/bokeh-dawn.svg) center/cover no-repeat;' },
   { id: 'contour', name: 'Gentle Slope',   css: 'background:#d8cce1 url(/wallpapers/contour-gentle.svg) center/cover no-repeat;' },
@@ -21,7 +21,8 @@ export const WALLPAPERS: Wallpaper[] = [
   { id: 'ink',     name: 'Ink Black',   css: 'background-color:#0c1018;background-image:radial-gradient(rgba(255,255,255,.10) 1px,transparent 1px);background-size:16px 16px;' },
 ];
 
-export const DEFAULT_WALLPAPER_ID = WALLPAPERS[0].id;
+// Gentle Slope is the default; the list order is only the picker order.
+export const DEFAULT_WALLPAPER_ID = 'contour';
 
 // Built-in wallpaper names go through t(); AI-generated custom wallpapers have no dictionary entry, so they fall back to the name they were given (a slice of the user's description).
 export const wallpaperName = (w: Wallpaper): string => {
