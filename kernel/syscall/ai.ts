@@ -18,7 +18,7 @@ import { AGENT_LIMITS } from "../config.js";
 import { modelConfig, agentLimits } from "../data/settings.js";
 import { memoryBlock } from "../memory/index.js";
 import { appsBlock, languageBlock } from "../apps/scan.js";
-import { startActivity, finishActivity, listActivity, runningCount } from "../data/activity.js";
+import { startAiCall, finishAiCall, listAiCalls, getAiCall, runningCount, type AiCallKind, type AiCallTool } from "../data/activity.js";
 import { workspace } from "../paths.js";
 import { broadcast } from "../realtime.js";
 
@@ -56,25 +56,35 @@ const assertConfigured = () => {
   return cfg;
 };
 
-/** Every call gets logged as one activity entry —— summary is required so the user can see who's burning tokens and why. */
-const track = (appId: string, summary: string) => {
-  const clean = String(summary || "").trim();
+/** Every call gets logged as one ledger entry —— summary is required so the user can see who's burning tokens and why. */
+const track = (appId: string, kind: AiCallKind, req: AiRequest) => {
+  const clean = String(req.summary || "").trim();
   if (!clean) throw new Error("summary is required: a short sentence describing what this call is for");
-  const id = startActivity(appId, clean);
+  const id = startAiCall(appId, kind, clean, buildPrompt(req), String(req.system || ""));
   broadcast("activity.start", { id, appId, summary: clean });
   return {
-    done: (detail = "") => { finishActivity(id, "done", detail); broadcast("activity.end", { id, status: "done" }); },
-    fail: (detail: string) => { finishActivity(id, "error", detail); broadcast("activity.end", { id, status: "error" }); },
+    done: (detail: { result?: string; usage?: any; tools?: AiCallTool[] } = {}) => { finishAiCall(id, "done", detail); broadcast("activity.end", { id, status: "done" }); },
+    fail: (error: string, detail: { result?: string; usage?: any; tools?: AiCallTool[] } = {}) => { finishAiCall(id, "error", { ...detail, error }); broadcast("activity.end", { id, status: "error" }); },
   };
 };
 
+/** The tool calls of an agent round, paired with their outputs, for the ledger. */
+const toolsOf = (items: any[] = []): AiCallTool[] => {
+  const outputs = new Map<string, string>();
+  for (const item of items) if (item?.type === "function_call_output") outputs.set(String(item.call_id), String(item.output ?? ""));
+  return items
+    .filter((item) => item?.type === "function_call")
+    .map((item) => ({ name: String(item.name || ""), args: String(item.arguments || "").slice(0, 4000), output: (outputs.get(String(item.call_id)) || "").slice(0, 4000) }));
+};
+
 // ── activity: the ledger of who called the AI, for the Activity app ─────────────────
-export const aiActivity = (_appId: string, limit = 100) => ({ items: listActivity(limit), running: runningCount() });
+export const aiActivity = (_appId: string, opts: { limit?: number; id?: number } = {}) =>
+  opts.id ? { item: getAiCall(Number(opts.id)) || null } : { items: listAiCalls(Number(opts.limit) || 100), running: runningCount() };
 
 // ── ask: one-shot completion ────────────────────────────────────────────
 export const aiAsk = async (appId: string, req: AiRequest) => {
   const cfg = assertConfigured();
-  const act = track(appId, req.summary);
+  const act = track(appId, "ask", req);
   try {
     const { text, usage } = await complete({
       driver: cfg.driver,
@@ -88,7 +98,7 @@ export const aiAsk = async (appId: string, req: AiRequest) => {
       modelOptions: undefined,
       signal: undefined,
     });
-    act.done();
+    act.done({ result: String(text || ""), usage });
     return { ok: true, text, usage };
   } catch (e: any) {
     act.fail(String(e?.message || e));
@@ -126,10 +136,10 @@ const runOnce = async (appId: string, req: AiRequest, hooks: RunHooks = {}) => {
 };
 
 export const aiRun = async (appId: string, req: AiRequest) => {
-  const act = track(appId, req.summary);
+  const act = track(appId, "run", req);
   try {
     const out = await runOnce(appId, req);
-    act.done();
+    act.done({ result: out.text, usage: out.usage, tools: toolsOf(out.items) });
     return { ok: true, ...out };
   } catch (e: any) {
     act.fail(String(e?.message || e));
@@ -149,7 +159,7 @@ export const aiStream = (appId: string, req: AiRequest): ReadableStream<Uint8Arr
       };
       let act: ReturnType<typeof track> | null = null;
       try {
-        act = track(appId, req.summary);
+        act = track(appId, "stream", req);
         // The kernel's own internal done never goes out —— it doesn't carry the final text. We add
         // a single done here that carries the full text instead; the app frontend only ever sees
         // this one end-of-stream signal and never has to tell the two kinds of done apart.
@@ -157,7 +167,7 @@ export const aiStream = (appId: string, req: AiRequest): ReadableStream<Uint8Arr
           onEvent: (name, payload) => { if (name !== EVENTS.DONE) send(name, payload); },
         });
         send(EVENTS.DONE, { text: out.text, usage: out.usage, status: out.status });
-        act.done();
+        act.done({ result: out.text, usage: out.usage, tools: toolsOf(out.items) });
       } catch (e: any) {
         const message = String(e?.message || e);
         send(EVENTS.ERROR, { error: message });

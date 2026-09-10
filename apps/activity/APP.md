@@ -1,14 +1,14 @@
 # Activity (activity)
 
-Activity monitor. Lists every AI call any app has made through env.AI — which app, a one-line summary, running / done / error, when — and the assistant conversations that are running right now. Read-only.
+Activity monitor. Every AI call any app has made through env.AI — which app, what it asked, what came back, which tools ran, tokens and duration — plus the assistant conversations running right now. Read-only.
 
 ## Data
 
-No tables of its own. `/api/activity` reads the kernel's activity ledger through `env.AI.activity({ limit })`; `/api/runs` reads the running conversation ids and titles through `env.AI.fetch` (`/api/runs`, `/api/conversations`). The page refreshes itself every three seconds.
+No tables of its own. `/api/activity?limit=` lists the kernel's AI call ledger and `/api/activity/:id` returns one call in full (prompt, system prompt, result, tool calls), both through `env.AI.activity`. `/api/runs` reads running conversation ids and titles through `env.AI.fetch` (`/api/runs`, `/api/conversations`). The page refreshes every two seconds.
 
 ## UI
 
-Filter tabs All / Running / Done / Error with counts. Each row: app id, summary, status, time; a failed row shows the error detail. A "Running conversations" strip at the top lists the assistant conversations still working.
+Left: the call list with All / Running / Done / Error filters, a text filter, and per-row app, kind, summary, tokens, duration and time. Right: the selected call — status, timing, tokens, the prompt, the reply, every tool call with its arguments and output, and the error if any. A strip above the list shows conversations that are still working.
 
 ## Layout and editing
 

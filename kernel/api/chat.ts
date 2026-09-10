@@ -9,7 +9,7 @@ import {
   listConversations, createConversation, renameConversation,
   deleteConversation, listItems,
 } from "../data/conversations.js";
-import { listActivity } from "../data/activity.js";
+import { listAiCalls } from "../data/activity.js";
 import { listMemory, remember, forget } from "../memory/index.js";
 
 export const handleChatApi = async (req: IncomingMessage, res: ServerResponse, rest: string): Promise<boolean> => {
@@ -39,7 +39,7 @@ export const handleChatApi = async (req: IncomingMessage, res: ServerResponse, r
     return json(res, 200, { ok: true });
   }
 
-  if (rest === "/activity") return json(res, 200, { activity: listActivity(Number(url.searchParams.get("limit")) || 50) });
+  if (rest === "/activity") return json(res, 200, { activity: listAiCalls(Number(url.searchParams.get("limit")) || 50) });
 
   if (rest === "/memory") {
     if (req.method === "POST") {

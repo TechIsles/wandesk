@@ -51,13 +51,23 @@ CREATE TABLE IF NOT EXISTS settings (
   value TEXT NOT NULL DEFAULT ''
 );
 
--- ── Activity log: who's calling the AI. Any app calling env.AI must include a summary, logged here so the user can see it ──
-CREATE TABLE IF NOT EXISTS activity (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  app_id     TEXT NOT NULL,
-  summary    TEXT NOT NULL,
-  status     TEXT NOT NULL DEFAULT 'running', -- running | done | error
-  detail     TEXT NOT NULL DEFAULT '',
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+-- ── AI call ledger: every env.AI call from every app, with what was asked, what came back, tools used, tokens and timing ──
+DROP TABLE IF EXISTS activity;
+CREATE TABLE IF NOT EXISTS ai_calls (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  app_id        TEXT NOT NULL,
+  kind          TEXT NOT NULL DEFAULT 'ask',     -- ask | run | stream
+  summary       TEXT NOT NULL,
+  status        TEXT NOT NULL DEFAULT 'running', -- running | done | error
+  prompt        TEXT NOT NULL DEFAULT '',
+  system        TEXT NOT NULL DEFAULT '',
+  result        TEXT NOT NULL DEFAULT '',
+  error         TEXT NOT NULL DEFAULT '',
+  tools         TEXT NOT NULL DEFAULT '[]',      -- JSON: [{ name, args, output }] for run / stream
+  input_tokens  INTEGER NOT NULL DEFAULT 0,
+  output_tokens INTEGER NOT NULL DEFAULT 0,
+  started_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  finished_at   TEXT,
+  duration_ms   INTEGER NOT NULL DEFAULT 0
 );
-CREATE INDEX IF NOT EXISTS idx_activity_created ON activity (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ai_calls_started ON ai_calls (started_at DESC);

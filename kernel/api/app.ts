@@ -28,7 +28,7 @@ const HANDLERS: Record<string, (appId: string, body: Body) => unknown | Promise<
   // ── env.AI ──
   "ai-ask": (appId, b) => aiAsk(appId, { summary: b.summary, prompt: b.prompt, system: b.system, data: b.data }),
   "ai-run": (appId, b) => aiRun(appId, { summary: b.summary, prompt: b.prompt, system: b.system, data: b.data }),
-  "ai-activity": (appId, b) => aiActivity(appId, Number(b.limit) || 100),
+  "ai-activity": (appId, b) => aiActivity(appId, { limit: Number(b.limit) || 100, id: Number(b.id) || 0 }),
 
   // ── env.PROC ──
   "proc-spawn": (appId, b) => procSpawn(appId, String(b.command || ""), Array.isArray(b.args) ? b.args.map(String) : [], b.cwd),

@@ -1,4 +1,4 @@
-// Activity — read-only view of the kernel's activity ledger and the running conversations.
+// Activity — the kernel's AI call ledger and the conversations that are running right now. Read-only.
 // The ledger is product data and only ever reaches an app through env.AI; this app never touches raw tables.
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
@@ -12,6 +12,8 @@ export default {
         const limit = Number(url.searchParams.get("limit")) || 200;
         return json(await env.AI.activity({ limit }));
       }
+      const m = /^\/api\/activity\/(\d+)$/.exec(url.pathname);
+      if (m) return json(await env.AI.activity({ id: Number(m[1]) }));
       if (url.pathname === "/api/runs") {
         // Conversation surface: running ids + the conversation list, joined here so the frontend gets titles
         const [runs, list] = await Promise.all([
@@ -19,8 +21,12 @@ export default {
           env.AI.fetch(new Request("http://x/api/conversations")).then((r) => r.json()).catch(() => ({ conversations: [] })),
         ]);
         const ids = new Set(runs.ids || []);
-        const conversations = (list.conversations || list || []).filter((c) => ids.has(c.id)).map((c) => ({ id: c.id, title: c.title }));
-        return json({ conversations });
+        const all = Array.isArray(list) ? list : list.conversations || [];
+        return json({ conversations: all.filter((c) => ids.has(c.id)).map((c) => ({ id: c.id, title: c.title })) });
+      }
+      if (url.pathname === "/api/open-assistant") {
+        await env.UI.openApp("chat", "/");
+        return json({ ok: true });
       }
       return json({ ok: false, error: "not found" }, 404);
     } catch (e) {

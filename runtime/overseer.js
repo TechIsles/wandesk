@@ -268,7 +268,7 @@ export class HostGate extends WorkerEntrypoint {
   // ── env.AI ──
   aiAsk(req) { return this.#node("ai-ask", { summary: req.summary, prompt: req.prompt, system: req.system, data: req.data }); }
   aiRun(req) { return this.#node("ai-run", { summary: req.summary, prompt: req.prompt, system: req.system, data: req.data }); }
-  aiActivity(req) { return this.#node("ai-activity", { limit: req.limit }); }
+  aiActivity(req) { return this.#node("ai-activity", { limit: req.limit, id: req.id }); }
   /** Conversation-surface passthrough. Hands the Response straight back —— workerd RPC supports streaming return values, so SSE can ride this all the way to the frontend. */
   aiFetch(path, method, body, contentType) {
     const init = { method, headers: {} };
