@@ -170,32 +170,33 @@
 @keyframes orbit-spin { to { transform: rotate(360deg); } }
 .working-text { font-size: 12.5px; line-height: 20px; white-space: nowrap; }
 
-/* ── Empty state: centered starter prompts ── */
+/* ── Empty state: centered starter prompts — quiet rows, nothing heavier than the conversation itself ── */
 .conversation.is-blank .stream-inner { min-height: 100%; justify-content: center; }
-.blank { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 0 20px 24px; }
-.blank-title { font-size: 18px; line-height: 26px; font-weight: 600; color: var(--text-1); }
+.blank { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 0 20px 24px; }
+.blank > svg { opacity: .85; }
+.blank-title { font-size: 16px; line-height: 24px; font-weight: 600; color: var(--text-2); }
 .starters {
-    display: flex; flex-direction: column; align-items: center; gap: 8px;
-    width: 100%; margin-top: 6px;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    width: 100%; margin-top: 8px;
 }
-/* Aero glass panel — same recipe as .oobe-btn.is-primary, just larger and left-aligned */
 .starter {
-    width: 100%; max-width: 430px;
+    width: 100%; max-width: 420px;
     display: flex; gap: 10px; align-items: flex-start;
-    background: linear-gradient(180deg, #eaf5ff 0%, #d7e9fb 48%, #c3ddf4 52%, #dcebf7 100%);
-    border: 1px solid #7295b6;
-    border-radius: 6px; padding: 12px 14px;
-    text-align: left; transition: filter .12s, box-shadow .12s;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .85), 0 1px 2px rgba(30, 60, 90, .15);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px; padding: 8px 12px;
+    text-align: left; transition: background .12s, border-color .12s;
 }
-.starter:hover { filter: brightness(1.045); }
-.starter:active { box-shadow: inset 0 1px 3px rgba(30, 60, 90, .3); }
-.starter-ic { flex: none; padding: 2px 0; color: #3b6bb0; }
+.starter:hover { background: var(--fill); border-color: var(--edge-soft); }
+.starter:active { background: var(--fill-2); }
+.starter-ic { flex: none; padding: 2px 0; color: var(--text-4); }
+.starter:hover .starter-ic { color: var(--accent); }
 .starter-text {
     flex: 1; min-width: 0;
-    font-size: 13.5px; line-height: 20px; color: #16324f;
+    font-size: 13px; line-height: 20px; color: var(--text-3);
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
+.starter:hover .starter-text { color: var(--text-1); }
 
 /* ── Input area: a white text box on a faint blue-white strip ── */
 .composer-wrap { flex-shrink: 0; padding: 12px 24px 12px; background: linear-gradient(180deg, #fbfdff 0%, #f4f8fc 100%); border-top: 1px solid var(--edge-soft); }

@@ -199,7 +199,7 @@ export function MessageStream() {
 
                 {ready && !rows.length && (
                     <div className="blank float-in">
-                        <Mark size={60} />
+                        <Mark size={44} />
                         <div className="blank-title">What should we do?</div>
                         <div className="starters">
                             {STARTERS.map((starter) => (
