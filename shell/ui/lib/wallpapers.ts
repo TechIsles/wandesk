@@ -73,7 +73,7 @@ export const normalizeWallpaperId = (id?: string): string => {
 };
 
 export const wallpaperCss = (id: string): string =>
-  (allWallpapers().find((w) => w.id === normalizeWallpaperId(id)) || WALLPAPERS[0]).css;
+  (allWallpapers().find((w) => w.id === normalizeWallpaperId(id)) || WALLPAPERS.find((w) => w.id === DEFAULT_WALLPAPER_ID) || WALLPAPERS[0]).css;
 
 // React style prop wants an object, not a CSS string. The wallpaper values have no
 // semicolons inside their declarations, so a split on ';' / first ':' is safe here.
