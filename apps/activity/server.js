@@ -1,5 +1,5 @@
-// Activity — the kernel's AI call ledger and the conversations that are running right now. Read-only.
-// The ledger is product data and only ever reaches an app through env.AI; this app never touches raw tables.
+// Activity — the kernel's task record (every env.AI call) and the conversations that are running right now. Read-only.
+// Tasks are product data and only ever reach an app through env.AI; this app never touches raw tables.
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
 
@@ -8,12 +8,12 @@ export default {
     const url = new URL(req.url);
     if (!url.pathname.startsWith("/api/")) return env.ASSETS.fetch(req);
     try {
-      if (url.pathname === "/api/activity") {
+      if (url.pathname === "/api/tasks") {
         const limit = Number(url.searchParams.get("limit")) || 200;
-        return json(await env.AI.activity({ limit }));
+        return json(await env.AI.tasks({ limit }));
       }
-      const m = /^\/api\/activity\/(\d+)$/.exec(url.pathname);
-      if (m) return json(await env.AI.activity({ id: Number(m[1]) }));
+      const m = /^\/api\/tasks\/(\d+)$/.exec(url.pathname);
+      if (m) return json(await env.AI.tasks({ id: Number(m[1]) }));
       if (url.pathname === "/api/runs") {
         // Conversation surface: running ids + the conversation list, joined here so the frontend gets titles
         const [runs, list] = await Promise.all([

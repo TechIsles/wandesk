@@ -55,8 +55,7 @@ kernel/         🧠 Kernel: knows everything
   ai/ agent/    the AI core (pure JS, zero deps, kept in sync with the AGENT repo)
   syscall/      one file per binding: ai / db / assets / proc / fs / ui
   apps/         app lifecycle: scan / token / preset landing / directory watch
-  memory/       long-term memory — injected only through env.AI, apps never read it raw
-  data/         the kernel's own SQLite (sessions / memory / settings / activity)
+  data/         the kernel's own SQLite: conversations / messages / compactions / settings / tasks
 runtime/        ⚙️ workerd: user space for apps
   overseer.js   routes <token>.localhost, injects binding shims, hosts AppStore (env.DB's SQLite)
   supervisor.ts starts and stops workerd
@@ -96,7 +95,7 @@ An app does not need to know what else is on the system. It says one thing:
 return env.AI.stream({ summary: "Assistant: answer the user", prompt: text });
 ```
 
-Memory, context and tools converge in the kernel. The kernel therefore never grows a domain concept — it never learns what a "note" is, and that is what lets the AI make apps without limit.
+Context and tools converge in the kernel. The kernel therefore never grows a domain concept — it never learns what a "note" is, and that is what lets the AI make apps without limit.
 
 ## Preinstalled apps
 

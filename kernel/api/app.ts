@@ -7,7 +7,7 @@ import type { IncomingMessage, ServerResponse } from "http";
 import { json, readJson } from "./http.js";
 import { appAsset, appServerCode } from "../apps/scan.js";
 import { linkAppDb } from "../syscall/db.js";
-import { aiAsk, aiRun, aiStream, aiActivity } from "../syscall/ai.js";
+import { aiAsk, aiRun, aiStream, aiTasks } from "../syscall/ai.js";
 import { procSpawn, procList, procLog, procKill, procExec } from "../syscall/proc.js";
 import { fsList, fsRead, fsReadBase64, fsWrite, fsWriteBase64, fsMkdir, fsDelete } from "../syscall/fs.js";
 import { uiToast, uiOpenApp, uiOpenExternal } from "../syscall/ui.js";
@@ -28,7 +28,7 @@ const HANDLERS: Record<string, (appId: string, body: Body) => unknown | Promise<
   // ── env.AI ──
   "ai-ask": (appId, b) => aiAsk(appId, { summary: b.summary, prompt: b.prompt, system: b.system, data: b.data }),
   "ai-run": (appId, b) => aiRun(appId, { summary: b.summary, prompt: b.prompt, system: b.system, data: b.data }),
-  "ai-activity": (appId, b) => aiActivity(appId, { limit: Number(b.limit) || 100, id: Number(b.id) || 0 }),
+  "ai-tasks": (appId, b) => aiTasks(appId, { limit: Number(b.limit) || 100, id: Number(b.id) || 0 }),
 
   // ── env.PROC ──
   "proc-spawn": (appId, b) => procSpawn(appId, String(b.command || ""), Array.isArray(b.args) ? b.args.map(String) : [], b.cwd),

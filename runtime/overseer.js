@@ -80,8 +80,8 @@ class AiBinding {
   constructor(host) { this.host = host; }
   ask(req)  { return this.host.aiAsk(req || {}); }
   run(req)  { return this.host.aiRun(req || {}); }
-  /** The activity ledger: every env.AI call and its status. Read-only, aggregated by the kernel. */
-  activity(req) { return this.host.aiActivity(req || {}); }
+  /** Tasks: every env.AI call and its outcome. Read-only, aggregated by the kernel. */
+  tasks(req) { return this.host.aiTasks(req || {}); }
   /**
    * Conversation surface: forwards an entire HTTP request to the kernel's conversation API
    * (conversations / messages / persistent SSE / settings / attachments).
@@ -268,7 +268,7 @@ export class HostGate extends WorkerEntrypoint {
   // ── env.AI ──
   aiAsk(req) { return this.#node("ai-ask", { summary: req.summary, prompt: req.prompt, system: req.system, data: req.data }); }
   aiRun(req) { return this.#node("ai-run", { summary: req.summary, prompt: req.prompt, system: req.system, data: req.data }); }
-  aiActivity(req) { return this.#node("ai-activity", { limit: req.limit, id: req.id }); }
+  aiTasks(req) { return this.#node("ai-tasks", { limit: req.limit, id: req.id }); }
   /** Conversation-surface passthrough. Hands the Response straight back —— workerd RPC supports streaming return values, so SSE can ride this all the way to the frontend. */
   aiFetch(path, method, body, contentType) {
     const init = { method, headers: {} };

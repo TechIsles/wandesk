@@ -4,7 +4,7 @@ Talk to the agent inside the kernel. It has bash / read / write / edit, its work
 
 ## What it can do
 
-- Multiple sessions, with history stored in the kernel database; every call sees the list of apps already installed on the desktop plus long-term memory.
+- Multiple sessions, with history stored in the kernel database; every call sees the list of apps already installed on the desktop.
 - It calls the same agent shared by all apps (`env.AI`), with no special privileges.
 
 ## Layout and changes

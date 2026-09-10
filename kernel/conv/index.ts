@@ -22,11 +22,10 @@ import { createChannel } from "./server/sse.js";
 import { createRuns } from "./server/runs.js";
 import { createApi } from "./server/api.js";
 import { createFiles } from "./server/files.js";
-import { kernelDir, workspace } from "../paths.js";
+import { kernelDbFile, kernelDir, workspace } from "../paths.js";
 import { readSettings, writeSettings, modelConfig, agentLimits } from "../data/settings.js";
 import { AGENT_LIMITS } from "../config.js";
 import { appsBlock, languageBlock } from "../apps/scan.js";
-import { memoryBlock } from "../memory/index.js";
 
 const WINDOWS = process.platform === "win32";
 
@@ -62,7 +61,7 @@ const buildConfig = () => ({
       minTimeoutMs: 100, defaultTimeoutMs: 120000, maxTimeoutMs: 600000, maxOutputChars: agentLimits().toolOutputChars,
     };
   },
-  web: { host: "127.0.0.1", port: 0, dataFile: path.join(kernelDir(), "conversations.db") },
+  web: { host: "127.0.0.1", port: 0, dataFile: kernelDbFile() },
   images: { maxBytes: 8 * 1024 * 1024, maxPerMessage: 10, maxLiveToolImages: 2, directory: path.join(kernelDir(), "files") },
 });
 
@@ -117,14 +116,14 @@ export const convApi = () => {
     setSettings: (values: Record<string, string>) => maskKey(bridged.setSettings(values)),
   };
 
-  // When running the loop, append "installed apps" and long-term memory after instructions ——
+  // When running the loop, append "installed apps" and the language note after instructions ——
   // the assistant and env.AI see the same world.
   // The settings page still reads back only the text the user themselves wrote; the injected part is not echoed.
   const forRuns = {
     ...bridged,
     getSettings: () => {
       const s = bridged.getSettings();
-      return { ...s, instructions: `${s.instructions || ""}${appsBlock()}${languageBlock()}${memoryBlock()}`.trim() };
+      return { ...s, instructions: `${s.instructions || ""}${appsBlock()}${languageBlock()}`.trim() };
     },
   };
 

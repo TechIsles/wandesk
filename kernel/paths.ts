@@ -2,7 +2,7 @@
 //
 //   <workspace>/                 The user's workspace (defaults to ~/wandesk)
 //     apps/<id>/                 An app's home —— one directory is one app
-//     .wandesk/kernel.db         The kernel's own database (conversations/messages/compaction/settings/memory)
+//     .wandesk/kernel.db         The kernel's own database (conversations / messages / compactions / settings / tasks)
 //     .wandesk/store/            App databases (where workerd's AppStore writes to disk, one .sqlite per app)
 //
 // apps/<id>/data.db is a link pointing at the real file inside store: `sqlite3 apps/notes/data.db`

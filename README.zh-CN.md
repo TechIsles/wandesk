@@ -54,8 +54,7 @@ kernel/         🧠 内核:知道一切
   ai/ agent/    AI 内核(与 AGENT 仓库双向同步,纯 JS 零依赖)
   syscall/      一个文件一个 binding:ai / db / assets / proc / fs / ui
   apps/         应用生命周期:扫描 / token / 预装落地 / 目录监听
-  memory/       长期记忆 —— 只经 env.AI 注入,应用读不到原文
-  data/         内核自己的 SQLite(会话 / 记忆 / 设置 / 活动流水)
+  data/         内核自己的 SQLite:conversations / messages / compactions / settings / tasks
 runtime/        ⚙️ workerd:应用的用户态
   overseer.js   路由 <token>.localhost + 注入 binding 垫片 + AppStore(env.DB 的 SQLite 就在这)
   supervisor.ts 起停 workerd
@@ -100,7 +99,7 @@ binding、跑在同一个 workerd 里、数据落在自己的库里(`apps/<id>/d
 return env.AI.stream({ summary: "助理:回答用户", prompt: text });
 ```
 
-记忆、上下文、工具的汇聚发生在内核。内核因此不必长出任何领域概念 ——
+上下文、工具的汇聚发生在内核。内核因此不必长出任何领域概念 ——
 它永远不知道「笔记」是什么,这是 AI 能无限造应用的前提。
 
 ## 预装应用

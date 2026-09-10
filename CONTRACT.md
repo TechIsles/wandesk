@@ -128,9 +128,8 @@ This is the dividing line between Wandesk and an ordinary worker platform, and w
 > **Apps don't share data. What apps share is one agent that knows everything.**
 
 An app doesn't need to know what else is on the system — it just says one thing.
-Memory, context, and tool convergence all happen at the kernel layer — the kernel
-therefore never has to grow a single domain concept; it never learns what a
-"bookmark" is.
+Context and tool convergence happen at the kernel layer — the kernel therefore
+never has to grow a single domain concept; it never learns what a "bookmark" is.
 
 | API | use |
 |---|---|
@@ -215,8 +214,8 @@ kept at zero cost, so there's somewhere to tighten this up later if needed.
   Deleting an app's directory doesn't delete its database (just like deleting a
   Worker doesn't delete its D1) — the data stays in `.wandesk/store/` and comes back
   on reinstall;
-- **The product's own data belongs to the kernel**: memory and the activity feed are
-  only ever aggregated through `env.AI`; apps never read the raw text;
+- **The product's own data belongs to the kernel**: conversations and the task record
+  are only ever reached through `env.AI`; apps never read the raw tables;
 - **Real files belong to the user**: `env.FS`, always sandboxed to the workspace.
 
 ## 8. Known limitations
@@ -296,7 +295,7 @@ The kernel's `data/settings.ts` is the single source of truth:
 
 - **The language note the kernel gives the AI**: `kernel/apps/scan.ts`'s
   `languageBlock()` generates a "user interface language" prompt block, placed after
-  `appsBlock()` and before `memoryBlock()`, and injected into every call to
+  `appsBlock()`, and injected into every call to
   `kernel/syscall/ai.ts` (`env.AI.ask/run/stream`) and `kernel/conv/index.ts` (the
   assistant app) — so every agent knows whether to reply in Chinese or English
   without the app ever having to ask.

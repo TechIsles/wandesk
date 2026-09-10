@@ -61,7 +61,7 @@ const dict: Record<Lang, Record<string, string>> = {
     "about.discord": "Community on Discord",
     "about.what": "How it is built",
     "about.what.p1": "One shell, one AI kernel, one workerd. Everything else is an app: each one is a standard Cloudflare Worker site with its own origin and its own SQLite database. Installing means the directory exists; removing means deleting it.",
-    "about.what.p2": "Apps do not share data with each other. They share the same agent, reached through env.AI, so every app gets the same tools, context and memory without knowing anything about the others.",
+    "about.what.p2": "Apps do not share data with each other. They share the same agent, reached through env.AI, so every app gets the same tools and context without knowing anything about the others.",
     "about.license.title": "License",
     "about.license": "Open source under the ISC license. Contributions and issues are welcome on GitHub.",
 
@@ -130,7 +130,7 @@ const dict: Record<Lang, Record<string, string>> = {
     "settings.context.prompt.placeholder": "You are compacting a conversation so the agent can continue working seamlessly. Preserve the user's goals and constraints, what has already been done, key facts, paths, commands, errors, unfinished parts, and the next steps. Output only continuous summary prose — no tool calls, tags, or code fences.",
     "settings.context.prompt.hint": "Instructions given to the model when it summarizes earlier history. Leave empty to use the built-in prompt shown above.",
     "settings.system": "System prompt",
-    "settings.system.hint": "Sent with every conversation. The kernel appends long-term memory after it.",
+    "settings.system.hint": "Sent with every conversation, ahead of the kernel's own notes about installed apps and language.",
     "settings.save": "Save",
     "settings.saved": "Saved",
     "settings.account": "Wandesk account",

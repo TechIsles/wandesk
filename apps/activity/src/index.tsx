@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import "./style.css";
 
-// Activity — the kernel's ledger of AI calls (every env.AI call from every app) plus running conversations.
+// Activity — the kernel's task record (every env.AI call from every app) plus running conversations.
 // Left: the list. Right: one call in full.
 type Kind = "ask" | "run" | "stream";
 type Status = "running" | "done" | "error";
@@ -55,7 +55,7 @@ export default function Activity() {
     const load = async () => {
       try {
         const [a, r] = await Promise.all([
-          fetch("/api/activity?limit=300").then((x) => x.json()),
+          fetch("/api/tasks?limit=300").then((x) => x.json()),
           fetch("/api/runs").then((x) => x.json()),
         ]);
         if (!alive) return;
@@ -76,7 +76,7 @@ export default function Activity() {
   useEffect(() => {
     if (selected == null) { setCall(null); return; }
     let alive = true;
-    const load = () => fetch(`/api/activity/${selected}`).then((x) => x.json()).then((j) => { if (alive) setCall(j.item || null); }).catch(() => {});
+    const load = () => fetch(`/api/tasks/${selected}`).then((x) => x.json()).then((j) => { if (alive) setCall(j.item || null); }).catch(() => {});
     void load();
     const timer = setInterval(() => { if (call?.status === "running" || !call) void load(); }, REFRESH_MS);
     return () => { alive = false; clearInterval(timer); };

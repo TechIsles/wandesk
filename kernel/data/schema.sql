@@ -1,16 +1,20 @@
--- The kernel's own database. Holds only the runtime state of the "product itself" — no app domain data lives here.
+-- The kernel's own database: exactly five tables. Product runtime state only — no app domain data lives here.
 -- App data lives in workerd's AppStore (.wandesk/store/, apps/<id>/data.db is a symlink into it); the kernel never touches it.
+--
+-- conversations / messages / compactions are the assistant's conversation store (kernel/conv, from the AGENT repo);
+-- the column set here is that store's, verbatim. settings is one KV table for everything configurable.
+-- tasks is the record of every AI call any app makes through env.AI.
 
 -- ── Conversations ──────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS conversations (
-  id          TEXT PRIMARY KEY,
-  title       TEXT NOT NULL DEFAULT 'New conversation',
-  pinned      INTEGER NOT NULL DEFAULT 0,
-  -- Snapshot of the previous turn's context — just a fast cache for the next run, not the source of truth
-  context_json TEXT,
-  last_usage_json TEXT,
-  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  id           TEXT PRIMARY KEY,
+  title        TEXT NOT NULL,
+  workdir      TEXT NOT NULL,
+  pinned       INTEGER NOT NULL DEFAULT 0,
+  context_json TEXT NOT NULL DEFAULT '[]',   -- snapshot of the previous turn's context: a cache for the next run
+  usage_json   TEXT,
+  created_at   TEXT NOT NULL,
+  updated_at   TEXT NOT NULL
 );
 
 -- Append-only, immutable Responses items (message / reasoning / function_call / function_call_output)
@@ -18,42 +22,33 @@ CREATE TABLE IF NOT EXISTS messages (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
   conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
   seq             INTEGER NOT NULL,
-  role            TEXT NOT NULL DEFAULT '',
   item_json       TEXT NOT NULL,
-  created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at      TEXT NOT NULL,
+  UNIQUE(conversation_id, seq)
 );
-CREATE INDEX IF NOT EXISTS idx_messages_conv_seq ON messages (conversation_id, seq);
+CREATE INDEX IF NOT EXISTS idx_messages_conversation_seq ON messages(conversation_id, seq);
 
 -- Append-only compaction log: which range got replaced by a summary, and how many tokens it cost
 CREATE TABLE IF NOT EXISTS compactions (
-  id              INTEGER PRIMARY KEY AUTOINCREMENT,
   conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-  kind            TEXT NOT NULL,              -- summary | mechanical
-  start_seq       INTEGER NOT NULL,
-  end_seq         INTEGER NOT NULL,
-  summary         TEXT NOT NULL DEFAULT '',
+  start_seq       INTEGER NOT NULL CHECK (start_seq > 0),
+  end_seq         INTEGER NOT NULL CHECK (end_seq >= start_seq),
+  summary         TEXT NOT NULL,
+  kind            TEXT NOT NULL CHECK (kind IN ('summary', 'mechanical')),
   tokens          INTEGER NOT NULL DEFAULT 0,
-  created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  at              TEXT NOT NULL,
+  PRIMARY KEY (conversation_id, end_seq)
 );
+CREATE INDEX IF NOT EXISTS idx_compactions_conversation ON compactions(conversation_id, end_seq);
 
--- ── Memory: injected by the kernel on every env.AI call; apps never see the raw text ──
-CREATE TABLE IF NOT EXISTS memory (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  kind       TEXT NOT NULL DEFAULT 'fact',    -- fact | preference | project
-  text       TEXT NOT NULL,
-  source     TEXT NOT NULL DEFAULT '',        -- which app/conversation wrote this in
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
--- ── Settings: model connection, system prompt, shell preferences (desktop layout / wallpaper) ──
+-- ── Settings: model connection, account, context limits, system prompt, shell preferences (desktop layout / wallpaper) ──
 CREATE TABLE IF NOT EXISTS settings (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL DEFAULT ''
 );
 
--- ── AI call ledger: every env.AI call from every app, with what was asked, what came back, tools used, tokens and timing ──
-DROP TABLE IF EXISTS activity;
-CREATE TABLE IF NOT EXISTS ai_calls (
+-- ── Tasks: every env.AI call from every app — what was asked, what came back, tools used, tokens and timing ──
+CREATE TABLE IF NOT EXISTS tasks (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   app_id        TEXT NOT NULL,
   kind          TEXT NOT NULL DEFAULT 'ask',     -- ask | run | stream
@@ -70,4 +65,4 @@ CREATE TABLE IF NOT EXISTS ai_calls (
   finished_at   TEXT,
   duration_ms   INTEGER NOT NULL DEFAULT 0
 );
-CREATE INDEX IF NOT EXISTS idx_ai_calls_started ON ai_calls (started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_tasks_started ON tasks (started_at DESC);

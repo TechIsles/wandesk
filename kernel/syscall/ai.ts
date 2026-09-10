@@ -2,7 +2,7 @@
 //
 // "Apps don't share data with each other; what apps share is the same all-knowing agent."
 // An app doesn't need to know what exists in the system — it just says what it wants; the
-// gathering of memory, conversation history, and workspace files all happens at this layer. The
+// gathering of app roster, language note, and workspace files all happens at this layer. The
 // kernel therefore never has to grow any domain concepts of its own —— it never has to know what
 // a "note" is.
 //
@@ -16,9 +16,8 @@ import { runAgent } from "../agent/index.js";
 import { EVENTS } from "../ai/events.js";
 import { AGENT_LIMITS } from "../config.js";
 import { modelConfig, agentLimits } from "../data/settings.js";
-import { memoryBlock } from "../memory/index.js";
 import { appsBlock, languageBlock } from "../apps/scan.js";
-import { startAiCall, finishAiCall, listAiCalls, getAiCall, runningCount, type AiCallKind, type AiCallTool } from "../data/activity.js";
+import { startTask, finishTask, listTasks, getTask, runningCount, type TaskKind, type TaskTool } from "../data/tasks.js";
 import { workspace } from "../paths.js";
 import { broadcast } from "../realtime.js";
 
@@ -26,7 +25,7 @@ export type AiRequest = {
   summary: string;
   prompt: string;
   system?: string;
-  /** An app can bring its own context; the kernel injects memory ahead of it. */
+  /** An app can bring its own context; it is appended to the prompt as JSON. */
   data?: unknown;
 };
 
@@ -36,10 +35,10 @@ const textItem = (text: string) => ({
   content: [{ type: "input_text", text }],
 });
 
-/** instructions = the app's persona + the app roster and memory injected by the kernel. An app never sees this raw text — only the model does. */
+/** instructions = the app's persona + the app roster and language note injected by the kernel. An app never sees this raw text — only the model does. */
 export const buildInstructions = (system?: string) => {
   const base = String(system || modelConfig().system || "").trim();
-  return `${base}${appsBlock()}${languageBlock()}${memoryBlock()}`.trim();
+  return `${base}${appsBlock()}${languageBlock()}`.trim();
 };
 
 const buildPrompt = (req: AiRequest) => {
@@ -56,20 +55,20 @@ const assertConfigured = () => {
   return cfg;
 };
 
-/** Every call gets logged as one ledger entry —— summary is required so the user can see who's burning tokens and why. */
-const track = (appId: string, kind: AiCallKind, req: AiRequest) => {
+/** Every call becomes one task row —— summary is required so the user can see who's burning tokens and why. */
+const track = (appId: string, kind: TaskKind, req: AiRequest) => {
   const clean = String(req.summary || "").trim();
   if (!clean) throw new Error("summary is required: a short sentence describing what this call is for");
-  const id = startAiCall(appId, kind, clean, buildPrompt(req), String(req.system || ""));
+  const id = startTask(appId, kind, clean, buildPrompt(req), String(req.system || ""));
   broadcast("activity.start", { id, appId, summary: clean });
   return {
-    done: (detail: { result?: string; usage?: any; tools?: AiCallTool[] } = {}) => { finishAiCall(id, "done", detail); broadcast("activity.end", { id, status: "done" }); },
-    fail: (error: string, detail: { result?: string; usage?: any; tools?: AiCallTool[] } = {}) => { finishAiCall(id, "error", { ...detail, error }); broadcast("activity.end", { id, status: "error" }); },
+    done: (detail: { result?: string; usage?: any; tools?: TaskTool[] } = {}) => { finishTask(id, "done", detail); broadcast("activity.end", { id, status: "done" }); },
+    fail: (error: string, detail: { result?: string; usage?: any; tools?: TaskTool[] } = {}) => { finishTask(id, "error", { ...detail, error }); broadcast("activity.end", { id, status: "error" }); },
   };
 };
 
 /** The tool calls of an agent round, paired with their outputs, for the ledger. */
-const toolsOf = (items: any[] = []): AiCallTool[] => {
+const toolsOf = (items: any[] = []): TaskTool[] => {
   const outputs = new Map<string, string>();
   for (const item of items) if (item?.type === "function_call_output") outputs.set(String(item.call_id), String(item.output ?? ""));
   return items
@@ -77,9 +76,9 @@ const toolsOf = (items: any[] = []): AiCallTool[] => {
     .map((item) => ({ name: String(item.name || ""), args: String(item.arguments || "").slice(0, 4000), output: (outputs.get(String(item.call_id)) || "").slice(0, 4000) }));
 };
 
-// ── activity: the ledger of who called the AI, for the Activity app ─────────────────
-export const aiActivity = (_appId: string, opts: { limit?: number; id?: number } = {}) =>
-  opts.id ? { item: getAiCall(Number(opts.id)) || null } : { items: listAiCalls(Number(opts.limit) || 100), running: runningCount() };
+// ── tasks: the record of who called the AI, for the Activity app ─────────────────
+export const aiTasks = (_appId: string, opts: { limit?: number; id?: number } = {}) =>
+  opts.id ? { item: getTask(Number(opts.id)) || null } : { items: listTasks(Number(opts.limit) || 100), running: runningCount() };
 
 // ── ask: one-shot completion ────────────────────────────────────────────
 export const aiAsk = async (appId: string, req: AiRequest) => {
