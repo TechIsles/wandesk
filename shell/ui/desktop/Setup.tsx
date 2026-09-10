@@ -69,7 +69,7 @@ export function Setup({ wallpaper, onDone }: { wallpaper: string; onDone: () => 
       // Test first, save only on success — a failed attempt never counts as configured
       const r = await post<{ ok: boolean; error?: string }>("/api/settings/test", { driver, apiUrl, apiKey, model });
       if (!r.ok) { setError(t("setup.err.test", { e: r.error || "" })); return false; }
-      await post("/api/settings", { driver, apiUrl, apiKey, model });
+      await post("/api/settings", { driver, apiUrl, apiKey, model, source: "custom" });
       return true;
     } catch (e: any) {
       setError(String(e?.message || e));

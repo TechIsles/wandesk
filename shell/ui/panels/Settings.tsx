@@ -5,41 +5,53 @@ import { on, EV } from "../lib/realtime";
 import "./Settings.css";
 
 // Settings — a shell panel, not an app.
-// It configures the framework itself (which model the kernel talks to, the system
-// prompt), not anything domain-specific.
+// It configures the framework itself: where conversations get their model from, and the system prompt.
 // "Whatever configures the framework belongs to the shell, whatever does work is always an app" — that line stays firm.
-const DRIVERS = [
-  { id: "responses", labelKey: "settings.driver.responses" },
-  { id: "chat", labelKey: "settings.driver.chat" },
-];
+//
+// Model source is a two-way choice. Two connection sets live side by side in the kernel and never overwrite each other:
+//   · Wandesk account — signing in mints the gateway connection; the card shows only balance and top-up.
+//   · Custom gateway  — the user's own endpoint; the card shows the three fields.
+// Picking a card switches `source` immediately; the set that is not selected stays stored.
 
-type Account = { signedIn: boolean; email?: string; credits?: number | null; rechargeUrl?: string; revoked?: boolean };
+type Source = "wandesk" | "custom";
+type Account = { signedIn: boolean; source: Source; email?: string; credits?: number | null; rechargeUrl?: string; revoked?: boolean };
+type Custom = { apiUrl: string; apiKey: string; model: string };
+
+const isComplete = (c: Custom) => Boolean(c.apiUrl.trim() && c.apiKey.trim() && c.model.trim());
 
 export function Settings() {
-  const [form, setForm] = useState({ driver: "responses", apiUrl: "", apiKey: "", model: "", system: "" });
-  const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [source, setSource] = useState<Source>("wandesk");
+  const [custom, setCustom] = useState<Custom>({ apiUrl: "", apiKey: "", model: "" });
+  const [savedCustom, setSavedCustom] = useState<Custom>({ apiUrl: "", apiKey: "", model: "" });
+  const [system, setSystem] = useState("");
+  const [savedSystem, setSavedSystem] = useState("");
   const [account, setAccount] = useState<Account | null>(null);
   const [waiting, setWaiting] = useState(false);
   const [accountError, setAccountError] = useState("");
+  const [flash, setFlash] = useState<"custom" | "system" | "">("");
 
-  const loadConnection = () =>
-    api<{ settings?: Record<string, string> }>("/api/settings").then((j) => {
+  const loadSettings = () =>
+    api<{ settings?: Record<string, string>; source?: Source }>("/api/settings").then((j) => {
       const s = j.settings || {};
-      setForm({
-        driver: s.driver || "responses",
-        apiUrl: s.apiUrl || "",
-        apiKey: s.apiKey || "",   // the kernel echoes back a ******** placeholder; sending it back unchanged = no change
-        model: s.model || "",
-        system: s.system || "",
-      });
+      const c = { apiUrl: s.apiUrl || "", apiKey: s.apiKey || "", model: s.model || "" }; // apiKey comes back as a ******** placeholder
+      setCustom(c); setSavedCustom(c);
+      setSystem(s.system || ""); setSavedSystem(s.system || "");
+      setSource(j.source === "custom" ? "custom" : "wandesk");
       setLoading(false);
     });
-  const loadAccount = () => api<Account>("/api/account").then(setAccount).catch(() => setAccount({ signedIn: false }));
+  const loadAccount = () => api<Account>("/api/account").then(setAccount).catch(() => setAccount({ signedIn: false, source }));
 
-  useEffect(() => { void loadConnection(); void loadAccount(); }, []);
+  useEffect(() => { void loadSettings(); void loadAccount(); }, []);
   // Sign-in completes in the browser; the kernel reports it over realtime and the panel refreshes itself.
-  useEffect(() => on(EV.ACCOUNT_CHANGED, () => { setWaiting(false); void loadConnection(); void loadAccount(); }), []);
+  useEffect(() => on(EV.ACCOUNT_CHANGED, () => { setWaiting(false); void loadSettings(); void loadAccount(); }), []);
+
+  const pick = async (next: Source) => {
+    if (next === source) return;
+    setSource(next);
+    await post("/api/settings", { source: next });
+    void loadAccount();
+  };
 
   const signIn = async () => {
     setAccountError("");
@@ -54,20 +66,33 @@ export function Settings() {
   };
   const signOut = async () => { await post("/api/account/logout", {}); };
 
-  const save = async () => {
-    await post("/api/settings", form);
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 2000);
+  const saveCustom = async () => {
+    const driver = /chat\/completions/i.test(custom.apiUrl) ? "chat" : "responses";
+    await post("/api/settings", { driver, apiUrl: custom.apiUrl.trim(), apiKey: custom.apiKey, model: custom.model.trim(), source: "custom" });
+    setSavedCustom(custom); setSource("custom");
+    setFlash("custom"); window.setTimeout(() => setFlash(""), 2000);
+  };
+  const saveSystem = async () => {
+    await post("/api/settings", { system });
+    setSavedSystem(system);
+    setFlash("system"); window.setTimeout(() => setFlash(""), 2000);
   };
 
-  const field = (key: "apiUrl" | "apiKey" | "model", label: string, hint?: string, type = "text") => (
+  const customDirty = custom.apiUrl !== savedCustom.apiUrl || custom.apiKey !== savedCustom.apiKey || custom.model !== savedCustom.model;
+  const wandeskActive = source === "wandesk" && !!account?.signedIn;
+  const customActive = source === "custom" && isComplete(savedCustom);
+
+  const field = (key: keyof Custom, label: string, type = "text", placeholder?: string) => (
     <label className="set-row">
-      <span className="set-label">{label}{hint && <em>{hint}</em>}</span>
+      <span className="set-label">{label}</span>
       <input
         className="set-input"
         type={type}
-        value={form[key]}
-        onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+        value={custom[key]}
+        placeholder={placeholder}
+        spellCheck={false}
+        autoComplete="off"
+        onChange={(e) => setCustom((c) => ({ ...c, [key]: e.target.value }))}
       />
     </label>
   );
@@ -76,63 +101,78 @@ export function Settings() {
 
   return (
     <div className="set-wrap">
-      <h2 className="set-title">{t("settings.account")}</h2>
-      <p className="set-hint">{t("settings.account.hint")}</p>
-      <div className="set-account">
-        {account?.signedIn ? (
-          <>
-            <div className="set-account-who">{t("settings.account.signedIn", { email: account.email || "" })}</div>
-            <div className="set-account-credits">
-              {account.credits == null ? t("settings.account.creditsUnknown") : t("settings.account.credits", { n: account.credits.toLocaleString() })}
-            </div>
-            <div className="set-account-actions">
-              <button className="set-save" onClick={() => window.open(account.rechargeUrl || "https://wandesk.ai/dashboard", "_blank", "noopener")}>{t("settings.account.topUp")}</button>
-              <button className="set-btn" onClick={signOut}>{t("settings.account.signOut")}</button>
-            </div>
-          </>
-        ) : (
-          <>
-            {account?.revoked && <div className="set-account-warn">{t("settings.account.revoked")}</div>}
-            <div className="set-account-actions">
-              <button className="set-save" onClick={signIn} disabled={waiting}>{t("settings.account.signIn")}</button>
-              {waiting && <span className="set-hint set-inline">{t("settings.account.waiting")}</span>}
-            </div>
-            {accountError && <div className="set-account-warn">{accountError}</div>}
-          </>
+      <h2 className="set-title">{t("settings.source")}</h2>
+      <p className="set-hint">{t("settings.source.hint")}</p>
+
+      {/* ── Wandesk account ── */}
+      <div className={`set-card${source === "wandesk" ? " is-on" : ""}`} onClick={() => void pick("wandesk")}>
+        <div className="set-card-head">
+          <span className="set-radio" aria-hidden="true" />
+          <span className="set-card-title">{t("settings.source.wandesk")}</span>
+          {wandeskActive && <span className="set-badge">{t("settings.source.active")}</span>}
+        </div>
+        <p className="set-card-desc">{t("settings.source.wandesk.desc")}</p>
+        {source === "wandesk" && (
+          <div className="set-card-body" onClick={(e) => e.stopPropagation()}>
+            {account?.signedIn ? (
+              <>
+                <div className="set-account-who">{t("settings.account.signedIn", { email: account.email || "" })}</div>
+                <div className="set-account-credits">
+                  {account.credits == null ? t("settings.account.creditsUnknown") : t("settings.account.credits", { n: account.credits.toLocaleString() })}
+                </div>
+                <div className="set-account-actions">
+                  <button className="set-save" onClick={() => window.open(account.rechargeUrl || "https://wandesk.ai/dashboard", "_blank", "noopener")}>{t("settings.account.topUp")}</button>
+                  <button className="set-btn" onClick={signOut}>{t("settings.account.signOut")}</button>
+                </div>
+              </>
+            ) : (
+              <>
+                {account?.revoked && <div className="set-account-warn">{t("settings.account.revoked")}</div>}
+                <div className="set-account-actions">
+                  <button className="set-save" onClick={signIn} disabled={waiting}>{t("settings.account.signIn")}</button>
+                  {waiting && <span className="set-hint set-inline">{t("settings.account.waiting")}</span>}
+                </div>
+                {accountError && <div className="set-account-warn">{accountError}</div>}
+              </>
+            )}
+          </div>
         )}
       </div>
 
-      <h2 className="set-title">{t("settings.title")}</h2>
-      <p className="set-hint">{t("settings.hint")}</p>
+      {/* ── Custom gateway ── */}
+      <div className={`set-card${source === "custom" ? " is-on" : ""}`} onClick={() => void pick("custom")}>
+        <div className="set-card-head">
+          <span className="set-radio" aria-hidden="true" />
+          <span className="set-card-title">{t("settings.source.custom")}</span>
+          {customActive && <span className="set-badge">{t("settings.source.active")}</span>}
+        </div>
+        <p className="set-card-desc">{t("settings.source.custom.desc")}</p>
+        {source === "custom" && (
+          <div className="set-card-body" onClick={(e) => e.stopPropagation()}>
+            {field("apiUrl", t("settings.apiUrl"), "text", "https://api.openai.com/v1/responses")}
+            {field("apiKey", t("settings.apiKey"), "password")}
+            {field("model", t("settings.model"), "text", "gpt-5.5")}
+            <p className="set-card-note">{t("settings.source.custom.note")}</p>
+            <div className="set-actions set-actions-end">
+              {flash === "custom" && <span className="set-ok">{t("settings.saved")}</span>}
+              <button className="set-save" onClick={saveCustom} disabled={!customDirty || !isComplete(custom)}>{t("settings.save")}</button>
+            </div>
+          </div>
+        )}
+      </div>
 
-      <label className="set-row">
-        <span className="set-label">{t("settings.driver")}</span>
-        <select
-          className="set-input"
-          value={form.driver}
-          onChange={(e) => setForm((f) => ({ ...f, driver: e.target.value }))}
-        >
-          {DRIVERS.map((d) => <option key={d.id} value={d.id}>{t(d.labelKey)}</option>)}
-        </select>
-      </label>
-
-      {field("apiUrl", t("settings.apiUrl"), t("settings.apiUrl.hint"))}
-      {field("apiKey", t("settings.apiKey"), t("settings.apiKey.hint"), "password")}
-      {field("model", t("settings.model"))}
-
-      <label className="set-row">
-        <span className="set-label">{t("settings.system")}<em>{t("settings.system.hint")}</em></span>
-        <textarea
-          className="set-input set-textarea"
-          rows={5}
-          value={form.system}
-          onChange={(e) => setForm((f) => ({ ...f, system: e.target.value }))}
-        />
-      </label>
-
+      {/* ── System prompt ── */}
+      <h2 className="set-title set-title-gap">{t("settings.system")}</h2>
+      <p className="set-hint">{t("settings.system.hint")}</p>
+      <textarea
+        className="set-input set-textarea"
+        rows={5}
+        value={system}
+        onChange={(e) => setSystem(e.target.value)}
+      />
       <div className="set-actions">
-        <button className="set-save" onClick={save}>{t("settings.save")}</button>
-        {saved && <span className="set-ok">{t("settings.saved")}</span>}
+        <button className="set-save" onClick={saveSystem} disabled={system === savedSystem}>{t("settings.save")}</button>
+        {flash === "system" && <span className="set-ok">{t("settings.saved")}</span>}
       </div>
     </div>
   );

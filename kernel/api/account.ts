@@ -10,12 +10,11 @@ import crypto from "crypto";
 import type { AddressInfo } from "net";
 import type { IncomingMessage, ServerResponse } from "http";
 import { json, text } from "./http.js";
-import { readSettings, writeSettings } from "../data/settings.js";
+import { readSettings, writeSettings, modelSource, customConfig } from "../data/settings.js";
 import { broadcast } from "../realtime.js";
 import { EV } from "../shared/events.js";
 import { WANDESK_SITE } from "../config.js";
 
-const GATEWAY_PREFIX = `${WANDESK_SITE}/v1/`;
 const LOGIN_TIMEOUT_MS = 10 * 60 * 1000;
 
 type Pending = { server: http.Server; state: string; timer: NodeJS.Timeout };
@@ -48,10 +47,9 @@ const finishLogin = async (code: string) => {
   if (!r.ok || !j.success || !apiUrl || !apiKey || !model) {
     throw new Error(String(j.message || `exchange failed (${r.status})`));
   }
-  const driver = /chat\/completions/i.test(apiUrl) ? "chat" : "responses";
-  writeSettings({ driver, apiUrl, apiKey, model });
+  // The gateway connection lives in its own three keys and never touches the custom one; signing in also selects it.
   const email = await fetchEmail(apiKey);
-  writeSettings({ accountEmail: email });
+  writeSettings({ gatewayUrl: apiUrl, gatewayKey: apiKey, gatewayModel: model, accountEmail: email, source: "wandesk" });
   broadcast(EV.ACCOUNT_CHANGED, { signedIn: true, email });
 };
 
@@ -104,23 +102,28 @@ const startLogin = async (): Promise<string> => {
   return url.toString();
 };
 
-/** Signed in = the model connection points at the Wandesk gateway. */
+/** Signed in = a gateway key is on file. Balance comes from the site; if it cannot be reached the account is still shown. */
 const account = async () => {
   const s = readSettings();
-  if (!s.apiUrl?.startsWith(GATEWAY_PREFIX) || !s.apiKey) return { signedIn: false };
+  const source = modelSource(s);
+  if (!s.gatewayKey) return { signedIn: false, source };
   try {
-    const r = await fetch(`${WANDESK_SITE}/v1/credits`, { headers: { authorization: `Bearer ${s.apiKey}` } });
+    const r = await fetch(`${WANDESK_SITE}/v1/credits`, { headers: { authorization: `Bearer ${s.gatewayKey}` } });
     const j = (await r.json().catch(() => ({}))) as Record<string, unknown>;
-    if (r.status === 401) return { signedIn: false, revoked: true };
+    if (r.status === 401) return { signedIn: false, revoked: true, source };
     if (!r.ok) throw new Error(String(r.status));
-    return { signedIn: true, email: String(j.email || s.accountEmail || ""), credits: Number(j.credits ?? 0), rechargeUrl: String(j.recharge_url || `${WANDESK_SITE}/dashboard`) };
+    return { signedIn: true, source, email: String(j.email || s.accountEmail || ""), credits: Number(j.credits ?? 0), rechargeUrl: String(j.recharge_url || `${WANDESK_SITE}/dashboard`) };
   } catch {
-    return { signedIn: true, email: s.accountEmail || "", credits: null, rechargeUrl: `${WANDESK_SITE}/dashboard` };
+    return { signedIn: true, source, email: s.accountEmail || "", credits: null, rechargeUrl: `${WANDESK_SITE}/dashboard` };
   }
 };
 
+/** Sign out clears the gateway set only; a custom connection, if any, is untouched — and if it is complete,
+ *  it takes over so the desktop keeps working instead of dropping back to the wizard. */
 const logout = () => {
-  writeSettings({ apiUrl: "", apiKey: "", model: "", accountEmail: "" });
+  writeSettings({ gatewayUrl: "", gatewayKey: "", gatewayModel: "", accountEmail: "" });
+  const c = customConfig();
+  if (c.url && c.apiKey && c.model) writeSettings({ source: "custom" });
   broadcast(EV.ACCOUNT_CHANGED, { signedIn: false });
 };
 

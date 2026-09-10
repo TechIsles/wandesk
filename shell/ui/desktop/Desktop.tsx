@@ -146,7 +146,7 @@ export function Desktop() {
               if (d.wallpaper) setWallpaper(normalizeWallpaperId(d.wallpaper));
             }
             // No model connection yet → the out-of-box setup screen, and no desktop until a model answers
-            setSetupNeeded(!(s.apiUrl && s.model && s.apiKey));
+            setSetupNeeded(!j?.connected);
           } catch { /* fall back to the cache if the kernel read fails */ }
           if (cancelled) return;
           setApps(list);
@@ -307,9 +307,12 @@ export function Desktop() {
   const layerH = EDGE + (maxRow(cells) + 1) * CH + EDGE;
   const topZ = Math.max(...wins.filter((w) => !w.min).map((w) => w.z), 0);
 
-  // Signing out clears the model connection → back to the wizard. Signing in is handled by whoever started it
-  // (the wizard shows its Finish step, the settings panel refreshes in place), so only sign-out is watched here.
-  useEffect(() => on(EV.ACCOUNT_CHANGED, (p) => { if (!p?.signedIn) setSetupNeeded(true); }), []);
+  // Signing out may leave no usable connection → back to the wizard. Signing in is handled by whoever started it
+  // (the wizard shows its Finish step, the settings panel refreshes in place), so only sign-out is re-checked here.
+  useEffect(() => on(EV.ACCOUNT_CHANGED, (p) => {
+    if (p?.signedIn) return;
+    void fetch("/api/settings").then((r) => r.json()).then((j) => setSetupNeeded(!j?.connected)).catch(() => { /* keep the current screen */ });
+  }), []);
 
   // First boot: the setup wizard is the whole screen — no desktop, no taskbar, until a model answers.
   if (setupNeeded) return <Setup wallpaper={wallpaper} onDone={() => setSetupNeeded(false)} />;

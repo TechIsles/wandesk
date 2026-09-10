@@ -23,7 +23,7 @@ import { createRuns } from "./server/runs.js";
 import { createApi } from "./server/api.js";
 import { createFiles } from "./server/files.js";
 import { kernelDir, workspace } from "../paths.js";
-import { readSettings, writeSettings } from "../data/settings.js";
+import { readSettings, writeSettings, modelConfig } from "../data/settings.js";
 import { AGENT_LIMITS } from "../config.js";
 import { appsBlock, languageBlock } from "../apps/scan.js";
 import { memoryBlock } from "../memory/index.js";
@@ -70,7 +70,15 @@ const rename = (obj: Record<string, string>, map: Record<string, string>) =>
 // Same approach as the shell's settings panel: mask it to a placeholder on read, and treat the
 // placeholder coming back unchanged on write as "not changed".
 const MASK = "********";
-const maskKey = (s: Record<string, string>) => (s.apiKey ? { ...s, apiKey: MASK } : s);
+const maskKey = (s: Record<string, string>) => {
+  const { gatewayKey: _gatewayKey, ...rest } = s; // the gateway key never leaves the kernel
+  return rest.apiKey ? { ...rest, apiKey: MASK } : rest;
+};
+/** The raw table plus the connection that is actually in effect (gateway or custom, by `source`). */
+const effectiveSettings = () => {
+  const cfg = modelConfig();
+  return { ...readSettings(), driver: cfg.driver, apiUrl: cfg.url, apiKey: cfg.apiKey, model: cfg.model };
+};
 
 let handler: ((req: IncomingMessage, res: ServerResponse, url: URL) => Promise<boolean>) | null = null;
 
@@ -83,12 +91,15 @@ export const convApi = () => {
   // shell's settings page write to the same table.
   const bridged = {
     ...store,
-    getSettings: () => rename(readSettings(), TO_AGENT),
+    getSettings: () => rename(effectiveSettings(), TO_AGENT),
     setSettings: (values: Record<string, string>) => {
-      const patch = { ...values };
+      const patch = rename({ ...values }, TO_WANDESK);
       if (patch.apiKey === MASK) delete patch.apiKey; // placeholder coming back unchanged = not changed
-      writeSettings(rename(patch, TO_WANDESK));
-      return rename(readSettings(), TO_AGENT);
+      delete patch.gatewayKey; delete patch.gatewayUrl; delete patch.gatewayModel; // only sign-in writes these
+      // Editing the connection from an app means "use my own endpoint"
+      if (["apiUrl", "apiKey", "model", "driver"].some((k) => k in patch)) patch.source = "custom";
+      writeSettings(patch);
+      return rename(effectiveSettings(), TO_AGENT);
     },
   };
 

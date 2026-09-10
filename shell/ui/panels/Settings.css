@@ -30,3 +30,23 @@
 .set-btn { padding: 8px 16px; font-size: 13px; font-weight: 500; color: var(--ink); cursor: pointer; background: #fff; border: 1px solid var(--line2); border-radius: 8px; }
 .set-btn:hover { background: var(--bg); }
 .set-save:disabled { opacity: .5; cursor: default; }
+
+/* ── Model source: two radio cards ── */
+.set-card { margin: 0 0 12px; padding: 16px 18px; border: 1px solid var(--line2); border-radius: 14px; background: #fff; cursor: pointer; transition: border-color .12s, box-shadow .12s; }
+.set-card:hover { border-color: #c9cdd6; }
+.set-card.is-on { border-color: var(--blue-deep); box-shadow: 0 0 0 3px var(--focus); cursor: default; }
+.set-card-head { display: flex; align-items: center; gap: 10px; }
+.set-radio { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid #c9cdd6; background: #fff; flex: none; position: relative; transition: border-color .12s; }
+.set-card.is-on .set-radio { border-color: var(--blue-deep); }
+.set-card.is-on .set-radio::after { content: ""; position: absolute; inset: 4px; border-radius: 50%; background: var(--blue-deep); }
+.set-card-title { font-size: 15px; font-weight: 700; color: var(--ink); }
+.set-badge { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--blue-deep); background: var(--focus); padding: 3px 10px; border-radius: 999px; }
+.set-card-desc { margin: 6px 0 0 28px; font-size: 12.5px; color: var(--ink3); line-height: 1.6; }
+.set-card-body { margin: 14px 0 0 28px; }
+.set-card-body .set-row { margin-bottom: 14px; }
+.set-card-body .set-input { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+.set-card-note { margin: 0; font-size: 12px; color: var(--ink3); line-height: 1.6; }
+.set-actions-end { justify-content: flex-end; margin-top: 14px; }
+.set-title-gap { margin-top: 26px; }
+.set-account-who { font-size: 13px; font-weight: 600; color: var(--ink); }
+.set-account-credits { font-size: 12.5px; color: var(--ink2); margin-top: 4px; }

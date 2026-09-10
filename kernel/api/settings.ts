@@ -1,7 +1,7 @@
 // Settings: model connection, system prompt, plus the shell's own preferences (desktop layout / wallpaper).
 import type { IncomingMessage, ServerResponse } from "http";
 import { json, readJson } from "./http.js";
-import { readSettings, writeSettings } from "../data/settings.js";
+import { readSettings, writeSettings, isConnected, modelSource } from "../data/settings.js";
 import { broadcast } from "../realtime.js";
 import { EV } from "../shared/events.js";
 import { complete } from "../ai/index.js";
@@ -29,7 +29,7 @@ export const handleSettingsTest = async (req: IncomingMessage, res: ServerRespon
 };
 
 /** apiKey is write-only: masked to a placeholder in the response to the shell, so the settings page never echoes it back. */
-const SECRET_KEYS = new Set(["apiKey"]);
+const SECRET_KEYS = new Set(["apiKey", "gatewayKey"]);
 
 export const handleSettingsApi = async (req: IncomingMessage, res: ServerResponse): Promise<boolean> => {
   if (req.method === "POST") {
@@ -50,5 +50,5 @@ export const handleSettingsApi = async (req: IncomingMessage, res: ServerRespons
   }
   const settings = readSettings();
   for (const k of SECRET_KEYS) if (settings[k]) settings[k] = "********";
-  return json(res, 200, { settings });
+  return json(res, 200, { settings, source: modelSource(settings), connected: isConnected() });
 };
