@@ -46,7 +46,6 @@ const dict: Record<Lang, Record<string, string>> = {
     "setup.err.missing": "All three fields are required.",
     "setup.err.test": "Could not reach the model: {e}",
     "taskbar.apps": "Apps",
-    "taskbar.busy": "{n} app(s) calling AI",
     "taskbar.assistant": "Assistant",
 
     "ctx.assistant": "Open assistant",

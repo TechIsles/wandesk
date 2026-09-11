@@ -20,7 +20,6 @@ import { appsBlock, languageBlock } from "../apps/scan.js";
 import { startTask, finishTask, listTasks, getTask, runningCount, type TaskKind } from "../data/tasks.js";
 import { appendMessage } from "../data/messages.js";
 import { workspace } from "../paths.js";
-import { broadcast } from "../realtime.js";
 
 export type AiRequest = {
   summary: string;
@@ -64,12 +63,11 @@ const track = (appId: string, kind: TaskKind, req: AiRequest, instructions: stri
   const { id, threadId } = startTask(appId, kind, clean);
   appendMessage(threadId, textItem("system", instructions));
   appendMessage(threadId, textItem("user", buildPrompt(req)));
-  broadcast("activity.start", { id, appId, summary: clean });
   return {
     threadId,
     item: (item: unknown) => { if (item) appendMessage(threadId, item); },
-    done: (usage?: any) => { finishTask(id, "done", { usage }); broadcast("activity.end", { id, status: "done" }); },
-    fail: (error: string, usage?: any) => { finishTask(id, "error", { error, usage }); broadcast("activity.end", { id, status: "error" }); },
+    done: (usage?: any) => finishTask(id, "done", { usage }),
+    fail: (error: string, usage?: any) => finishTask(id, "error", { error, usage }),
   };
 };
 

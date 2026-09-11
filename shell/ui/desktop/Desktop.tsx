@@ -51,7 +51,6 @@ export function Desktop() {
   const [sel, setSel] = useState<string | null>(null);
   const [ctx, setCtx] = useState({ open: false, x: 0, y: 0 });
   const [startOpen, setStartOpen] = useState(false);
-  const [busy, setBusy] = useState(0); // how many apps are currently calling AI
   const [toast, setToast] = useState<{ icon: string; text: string } | null>(null);
   const [setupNeeded, setSetupNeeded] = useState<boolean | null>(null); // null = not known yet
   const [langTick, setLangTick] = useState(0); // bumped +1 on each language switch, forcing every AppFrame to remount (reload its iframe)
@@ -166,8 +165,6 @@ export function Desktop() {
     const offs = [
       // "Install = the directory exists": once the AI finishes building an app, the desktop grows an icon immediately, no refresh needed
       on(EV.APPS_CHANGED, () => { void reload(); }),
-      on(EV.ACTIVITY_START, () => setBusy((n) => n + 1)),
-      on(EV.ACTIVITY_END, () => setBusy((n) => Math.max(0, n - 1))),
       on(EV.UI_TOAST, (p) => showToast("✦", String(p?.text || ""))),
       on(EV.UI_OPEN_APP, (p) => openById(String(p?.appId || ""), String(p?.route || "/"))),
       on(EV.UI_OPEN_EXTERNAL, (p) => window.open(String(p?.url || ""), "_blank", "noopener")),
@@ -378,7 +375,7 @@ export function Desktop() {
         </Window>
       ))}
 
-      {/* ── taskbar: start + open windows + busy indicator + assistant ── */}
+      {/* ── taskbar: start + open windows + assistant ── */}
       <div className="taskbar" onClick={(e) => { e.stopPropagation(); setCtx({ open: false, x: 0, y: 0 }); }}>
         <button className={`tb-start${startOpen ? " on" : ""}`} onClick={() => setStartOpen((v) => !v)} title={t("taskbar.apps")}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
@@ -402,7 +399,6 @@ export function Desktop() {
           ))}
         </div>
         {/* Who's calling AI — a status indicator owned by the shell, not an app. Apps calling env.AI must include a summary, exactly so this is visible */}
-        {busy > 0 && <span className="tb-busy" title={t("taskbar.busy", { n: busy })}>✦ {busy}</span>}
         <button className="tb-assistant" onClick={() => openById("chat")} title={t("taskbar.assistant")}>✦</button>
       </div>
 
