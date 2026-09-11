@@ -137,7 +137,7 @@ never has to grow a single domain concept; it never learns what a "bookmark" is.
 | `env.AI.run({ summary, prompt })` | a full agent turn with `bash` / `read` / `write` / `edit`, returns final text |
 | `env.AI.stream({ summary, prompt })` | same as `run`, but returns a `Response` — **the app just `return`s it directly**, and SSE flows straight through to its own frontend |
 
-- **`summary` is required** — a one-line description that lands in the activity feed,
+- **`summary` is required** — a one-line description that lands in the task list,
   so the user can see in the taskbar which app is burning tokens;
 - The kernel is the AGENT repo's `ai/` + `agent/`, driver-based (`responses` /
   `chat` dual drivers) — switching providers only means changing the URL.

@@ -1,4 +1,4 @@
-// Activity — the kernel's task record (every env.AI call) and the conversations that are running right now. Read-only.
+// Tasks — the kernel's task record (every env.AI call) and the conversations that are running right now. Read-only.
 // Tasks are product data and only ever reach an app through env.AI; this app never touches raw tables.
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });

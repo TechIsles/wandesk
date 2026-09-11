@@ -81,7 +81,7 @@ Apps live at `http://<token>.localhost:<port>/` — at the root of their own sit
 
 ## No native apps
 
-Everything in the activity bar and on the desktop is an app, **including the assistant and the file browser**. They get the same bindings as the apps you make, run in the same workerd, and keep their data in their own database (`apps/<id>/data.db` opens with `sqlite3`).
+Everything on the desktop is an app, **including the assistant and the file browser**. They get the same bindings as the apps you make, run in the same workerd, and keep their data in their own database (`apps/<id>/data.db` opens with `sqlite3`).
 
 The only things in the shell that are not apps are Settings and Personalize — they configure the framework itself. Configuring the framework belongs to the shell; doing work is always an app.
 
@@ -106,7 +106,7 @@ Context and tools converge in the kernel. The kernel therefore never grows a dom
 | 🗞️ Hacker News | 🌿 Ramify | 🔮 I Ching |
 | 💕 Love House | 📱 Phone | 🃏 Three-Card Poker |
 | 🎱 Pool | 🏎️ Dusk Racer | 🚀 Aircraft |
-| 📊 Activity | | |
+| 📋 Tasks | | |
 
 They ship with the package, land in your workspace on first launch, and from then on are indistinguishable from apps you made — edit them, delete them. Each one ships with its source in `apps/<id>/src`; to rebuild after editing, run `npm install && npm run build` inside that app's directory.
 

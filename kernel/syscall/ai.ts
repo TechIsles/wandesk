@@ -71,7 +71,7 @@ const track = (appId: string, kind: TaskKind, req: AiRequest, instructions: stri
   };
 };
 
-// ── tasks: the record of who called the AI, for the Activity app ─────────────────
+// ── tasks: the record of who called the AI, for the Tasks app ─────────────────
 export const aiTasks = (_appId: string, opts: { limit?: number; id?: number } = {}) =>
   opts.id ? { item: getTask(Number(opts.id)) } : { items: listTasks(Number(opts.limit) || 100), running: runningCount() };
 

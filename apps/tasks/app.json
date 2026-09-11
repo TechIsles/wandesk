@@ -1,0 +1,9 @@
+{
+  "id": "tasks",
+  "name": "Tasks",
+  "icon": "📋",
+  "description": "Tasks: every AI call made by any app — what was asked, what came back, tools, tokens and timing — plus the conversations running right now.",
+  "mounts": {
+    "window": "/"
+  }
+}

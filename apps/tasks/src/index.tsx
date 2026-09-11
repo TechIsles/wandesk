@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import "./style.css";
 
-// Activity — the kernel's task record (every env.AI call from every app) plus running conversations.
+// Tasks — the kernel's task record (every env.AI call from every app) plus running conversations.
 // Left: the list. Right: one call in full.
 type Kind = "ask" | "run" | "stream";
 type Status = "running" | "done" | "error";
@@ -55,7 +55,7 @@ const KIND_LABEL: Record<Kind, string> = { ask: "Completion", run: "Agent run", 
 const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
 const prettyArgs = (s: string) => { try { return JSON.stringify(JSON.parse(s), null, 2); } catch { return s; } };
 
-export default function Activity() {
+export default function Tasks() {
   const [rows, setRows] = useState<Row[]>([]);
   const [convs, setConvs] = useState<Conv[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
@@ -115,52 +115,52 @@ export default function Activity() {
   const TABS: Array<[Filter, string]> = [["all", "All"], ["running", "Running"], ["done", "Done"], ["error", "Error"]];
 
   return (
-    <div className="act">
-      <header className="act-head">
-        <h1>Activity</h1>
-        <span className="act-totals">{rows.length} calls · {tokens(totals.input)} in · {tokens(totals.output)} out</span>
-        <span className={`act-live${live ? " on" : ""}`}><i />{live ? `${live} running` : "Idle"}</span>
+    <div className="tk">
+      <header className="tk-head">
+        <h1>Tasks</h1>
+        <span className="tk-totals">{rows.length} tasks · {tokens(totals.input)} in · {tokens(totals.output)} out</span>
+        <span className={`tk-live${live ? " on" : ""}`}><i />{live ? `${live} running` : "Idle"}</span>
       </header>
 
-      <div className="act-body">
-        <section className="act-left">
+      <div className="tk-body">
+        <section className="tk-left">
           {convs.length > 0 && (
-            <div className="act-convs">
+            <div className="tk-convs">
               {convs.map((c) => (
-                <button key={c.id} className="act-conv" onClick={() => void fetch("/api/open-assistant")}>
-                  <i className="dot" /><span className="act-conv-title">{c.title || "Conversation"}</span><span className="act-conv-hint">Assistant · open</span>
+                <button key={c.id} className="tk-conv" onClick={() => void fetch("/api/open-assistant")}>
+                  <i className="dot" /><span className="tk-conv-title">{c.title || "Conversation"}</span><span className="tk-conv-hint">Assistant · open</span>
                 </button>
               ))}
             </div>
           )}
-          <div className="act-tools">
-            <nav className="act-tabs">
+          <div className="tk-tools">
+            <nav className="tk-tabs">
               {TABS.map(([key, label]) => (
-                <button key={key} className={`act-tab${filter === key ? " on" : ""}`} onClick={() => setFilter(key)}>
-                  {label}<span className="act-count">{counts[key]}</span>
+                <button key={key} className={`tk-tab${filter === key ? " on" : ""}`} onClick={() => setFilter(key)}>
+                  {label}<span className="tk-count">{counts[key]}</span>
                 </button>
               ))}
             </nav>
-            <input className="act-search" placeholder="Filter by app or text" value={query} onChange={(e) => setQuery(e.target.value)} />
+            <input className="tk-search" placeholder="Filter by app or text" value={query} onChange={(e) => setQuery(e.target.value)} />
           </div>
-          {error && <div className="act-error">{error}</div>}
-          <div className="act-list">
-            {!shown.length && <div className="act-empty">{rows.length ? "Nothing matches." : "No AI calls recorded yet."}</div>}
+          {error && <div className="tk-error">{error}</div>}
+          <div className="tk-list">
+            {!shown.length && <div className="tk-empty">{rows.length ? "Nothing matches." : "No tasks yet."}</div>}
             {shown.map((r) => (
-              <button key={r.id} className={`act-row${selected === r.id ? " on" : ""}`} onClick={() => setSelected(r.id)}>
-                <span className={`act-dot is-${r.status}`} />
-                <span className="act-row-main">
-                  <span className="act-row-top">
-                    <span className="act-app">{appLabel(r.app_id)}</span>
-                    <span className="act-kind">{KIND_LABEL[r.kind]}</span>
-                    <span className="act-time">{ago(r.started_at)}</span>
+              <button key={r.id} className={`tk-row${selected === r.id ? " on" : ""}`} onClick={() => setSelected(r.id)}>
+                <span className={`tk-dot is-${r.status}`} />
+                <span className="tk-row-main">
+                  <span className="tk-row-top">
+                    <span className="tk-app">{appLabel(r.app_id)}</span>
+                    <span className="tk-kind">{KIND_LABEL[r.kind]}</span>
+                    <span className="tk-time">{ago(r.started_at)}</span>
                   </span>
-                  <span className="act-summary">{r.summary}</span>
-                  <span className="act-row-meta">
+                  <span className="tk-summary">{r.summary}</span>
+                  <span className="tk-row-meta">
                     <span>{duration(r.duration_ms, r.status === "running", r.started_at)}</span>
                     {(r.input_tokens || r.output_tokens) ? <span>{tokens(r.input_tokens)} in · {tokens(r.output_tokens)} out</span> : null}
                     {r.tool_count ? <span>{r.tool_count} tool call{r.tool_count === 1 ? "" : "s"}</span> : null}
-                    {r.status === "error" && <span className="act-row-err">{oneLine(r.error).slice(0, 80)}</span>}
+                    {r.status === "error" && <span className="tk-row-err">{oneLine(r.error).slice(0, 80)}</span>}
                   </span>
                 </span>
               </button>
@@ -168,15 +168,15 @@ export default function Activity() {
           </div>
         </section>
 
-        <section className="act-detail">
+        <section className="tk-detail">
           {!task || !thread ? (
-            <div className="act-detail-empty">{selected == null ? "Select a task to see what was asked and what came back." : "Loading…"}</div>
+            <div className="tk-detail-empty">{selected == null ? "Select a task to see what was asked and what came back." : "Loading…"}</div>
           ) : (
             <>
-              <div className="act-detail-head">
-                <span className={`act-badge is-${task.status}`}>{task.status === "running" && <i className="spin" />}{task.status}</span>
+              <div className="tk-detail-head">
+                <span className={`tk-badge is-${task.status}`}>{task.status === "running" && <i className="spin" />}{task.status}</span>
                 <h2>{task.summary}</h2>
-                <div className="act-facts">
+                <div className="tk-facts">
                   <span><b>App</b>{appLabel(task.app_id)}</span>
                   <span><b>Kind</b>{KIND_LABEL[task.kind]}</span>
                   <span><b>Started</b>{clock(task.started_at)}</span>
@@ -185,22 +185,22 @@ export default function Activity() {
                   <span><b>Thread</b><code>{task.thread_id.slice(0, 8)}</code> · {call.messages.length} items</span>
                 </div>
               </div>
-              <div className="act-detail-body">
+              <div className="tk-detail-body">
                 {task.error && <Block title="Error" tone="error" text={task.error} />}
                 <Block title="Prompt" text={thread.prompt || "(empty)"} mono={false} />
                 {thread.system && <Block title="System prompt" text={thread.system} collapsed />}
                 {thread.reasoning.length > 0 && <Block title="Reasoning" text={thread.reasoning.join("\n\n")} mono={false} collapsed />}
                 {thread.tools.length > 0 && (
-                  <div className="act-block">
-                    <div className="act-block-title">Tool calls <span>{thread.tools.length}</span></div>
-                    <div className="act-toolist">
+                  <div className="tk-block">
+                    <div className="tk-block-title">Tool calls <span>{thread.tools.length}</span></div>
+                    <div className="tk-toolist">
                       {thread.tools.map((t, i) => (
-                        <details key={i} className="act-tool">
-                          <summary><code>{t.name}</code><span className="act-tool-args">{oneLine(t.args).slice(0, 140)}</span></summary>
-                          <div className="act-tool-body">
-                            <div className="act-tool-label">Arguments</div>
+                        <details key={i} className="tk-tool">
+                          <summary><code>{t.name}</code><span className="tk-tool-args">{oneLine(t.args).slice(0, 140)}</span></summary>
+                          <div className="tk-tool-body">
+                            <div className="tk-tool-label">Arguments</div>
                             <pre>{prettyArgs(t.args)}</pre>
-                            <div className="act-tool-label">Output</div>
+                            <div className="tk-tool-label">Output</div>
                             <pre>{t.output || (task.status === "running" ? "Running…" : "(no output)")}</pre>
                           </div>
                         </details>
@@ -222,8 +222,8 @@ export default function Activity() {
 function Block({ title, text, tone, mono = true, collapsed = false }: { title: string; text: string; tone?: "error"; mono?: boolean; collapsed?: boolean }) {
   const [open, setOpen] = useState(!collapsed);
   return (
-    <div className={`act-block${tone ? ` is-${tone}` : ""}`}>
-      <button className="act-block-title" onClick={() => setOpen(!open)}>
+    <div className={`tk-block${tone ? ` is-${tone}` : ""}`}>
+      <button className="tk-block-title" onClick={() => setOpen(!open)}>
         <i className={`chev${open ? " open" : ""}`} />{title}<span>{text.length.toLocaleString()} chars</span>
       </button>
       {open && <pre className={mono ? "" : "prose"}>{text}</pre>}

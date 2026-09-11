@@ -1,6 +1,6 @@
-# Activity (activity)
+# Tasks (tasks)
 
-Activity monitor. Every AI call any app has made through env.AI — which app, what it asked, what came back, which tools ran, tokens and duration — plus the assistant conversations running right now. Read-only.
+Tasks. Every AI call any app has made through env.AI — which app, what it asked, what came back, which tools ran, tokens and duration — plus the assistant conversations running right now. Read-only.
 
 ## Data
 
@@ -8,7 +8,7 @@ No tables of its own. `/api/tasks?limit=` lists the kernel's tasks (one per env.
 
 ## UI
 
-Left: the call list with All / Running / Done / Error filters, a text filter, and per-row app, kind, summary, tokens, duration and time. Right: the selected call — status, timing, tokens, the prompt, the reply, every tool call with its arguments and output, and the error if any. A strip above the list shows conversations that are still working.
+Left: the task list with All / Running / Done / Error filters, a text filter, and per-row app, kind, summary, tokens, duration and time. Right: the selected task — status, timing, tokens, the prompt, the reply, every tool call with its arguments and output, and the error if any. A strip above the list shows conversations that are still working.
 
 ## Layout and editing
 

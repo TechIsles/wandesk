@@ -1,5 +1,5 @@
 // Wallpaper generation: a feature of the shell itself, going through the same env.AI path (recorded under
-// appId __shell, visible in the activity feed).
+// appId __shell, visible in the task list).
 //
 // It lives in the kernel instead of being its own app because it configures the shell's own appearance —— it
 // belongs on the "configuration framework" side.
