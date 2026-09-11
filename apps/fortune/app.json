@@ -3,6 +3,8 @@
   "name": "I Ching",
   "icon": "🔮",
   "description": "Six-line I Ching divination — write down your question, toss coins to cast a hexagram, and let the AI diviner interpret your fortune.",
+  "version": "1.0.0",
+  "author": "Sider",
   "mounts": {
     "window": "/"
   }

@@ -122,6 +122,17 @@ class FsBinding {
   delete(path) { return this.host.fsDelete(path); }
 }
 
+/** env.APPS —— the app store: what is installed, install / update / remove, publish, and the catalog. */
+class AppsBinding {
+  constructor(host) { this.host = host; }
+  installed() { return this.host.appsInstalled(); }
+  install(id, version, opts) { return this.host.appsInstall(id, version, opts || {}); }
+  remove(id) { return this.host.appsRemove(id); }
+  publish(id, notes) { return this.host.appsPublish(id, notes || ""); }
+  /** The store API (wandesk.ai/api/store/…): GET, or POST with a JSON body; the account's key goes along when signed in. */
+  store(path, body) { return this.host.appsStore(path, body); }
+}
+
 class UiBinding {
   constructor(host) { this.host = host; }
   toast(text, kind) { return this.host.uiToast(text, kind); }
@@ -136,6 +147,7 @@ export const makeEnv = (raw) => {
     DB: new D1Database(host),
     ASSETS: new AssetsBinding(host),
     AI: new AiBinding(host),
+    APPS: new AppsBinding(host),
     PROC: new ProcBinding(host),
     FS: new FsBinding(host),
     UI: new UiBinding(host),
@@ -285,6 +297,13 @@ export class HostGate extends WorkerEntrypoint {
     });
     return res.body;
   }
+
+  // ── env.APPS ──
+  appsInstalled() { return this.#node("apps-installed", {}); }
+  appsInstall(id, version, opts) { return this.#node("apps-install", { id, version, force: !!opts?.force }); }
+  appsRemove(id) { return this.#node("apps-remove", { id }); }
+  appsPublish(id, notes) { return this.#node("apps-publish", { id, notes }); }
+  appsStore(path, body) { return this.#node("apps-store", { path, body }); }
 
   // ── env.PROC ──
   procSpawn(command, args, cwd) { return this.#node("proc-spawn", { command, args, cwd }); }

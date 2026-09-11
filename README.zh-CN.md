@@ -111,7 +111,7 @@ return env.AI.stream({ summary: "助理:回答用户", prompt: text });
 | 🗞️ Hacker News | 🌿 Ramify | 🔮 I Ching |
 | 💕 Love House | 📱 Phone | 🃏 Three-Card Poker |
 | 🎱 Pool | 🏎️ Dusk Racer | 🚀 Aircraft |
-| 📋 Tasks | | |
+| 📋 Tasks | 🛍️ Store | |
 
 随包发,首次启动落地到工作区;之后与你自己造的应用再无区别,可改可删。每个应用的源码都在 `apps/<id>/src` 里,改完在应用目录里 `npm install && npm run build` 即可重新构建。
 

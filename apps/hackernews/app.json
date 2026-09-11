@@ -3,6 +3,8 @@
   "name": "Hacker News",
   "icon": "🗞️",
   "description": "Hacker News headline reader with Top/New/Ask tabs. Click a title to read the original, click comments to open the HN discussion.",
+  "version": "1.0.0",
+  "author": "Sider",
   "mounts": {
     "window": "/"
   }

@@ -3,6 +3,8 @@
   "name": "Weather",
   "icon": "⛅",
   "description": "Live weather and a 7-day forecast — free Open-Meteo data, a gradient sky that shifts with conditions and time of day, plus drifting clouds and falling rain. Search cities, save favorites, switch with one tap, and it remembers your go-to cities even offline.",
+  "version": "1.0.0",
+  "author": "Sider",
   "mounts": {
     "window": "/"
   }

@@ -3,6 +3,8 @@
   "name": "Reader",
   "icon": "📖",
   "description": "An interactive-fiction e-reader — pick a premise and the AI plays game master, writing each page and offering you choices.",
+  "version": "1.0.0",
+  "author": "Sider",
   "mounts": {
     "window": "/"
   }

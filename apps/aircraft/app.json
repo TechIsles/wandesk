@@ -3,6 +3,8 @@
   "name": "Aircraft",
   "icon": "🚀",
   "description": "Neon arcade shooter with waves, bosses, power-ups and particle mayhem.",
+  "version": "1.0.0",
+  "author": "Sider",
   "mounts": {
     "window": "/"
   }

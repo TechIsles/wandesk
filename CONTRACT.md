@@ -37,12 +37,21 @@ Preinstalled apps ship with the package and land in the workspace on first launc
 after that they're indistinguishable from apps the user made — freely editable or
 removable.
 
-The manifest has exactly four fields (plus an optional `description`):
+The manifest has seven fields:
 
 ```json
-{ "id": "notes", "name": "Notes", "icon": "📔",
+{ "id": "notes", "name": "Notebook", "icon": "📔",
+  "description": "Notes in a notebook, one page at a time.",
+  "version": "1.0.0", "author": "Sider",
   "mounts": { "window": "/", "panel": "/panel.html" } }
 ```
+
+- `id`: 3–32 lowercase letters, digits or hyphens; equals the directory name; in the store the first publisher owns it.
+- `name` / `description`: a string or `{ zh, en }`. `description` falls back to APP.md's first paragraph when missing.
+- `icon`: one emoji.
+- `version`: semver. The store uses it to offer updates; the local upgrade rule (untouched → update, modified → leave it) applies.
+- `author`: display name only. Ownership is the store account that published it.
+- Nothing about layout: `server.js`, `public/`, `src/`, `APP.md` are fixed by this contract and never declared.
 
 - **A mount point is a route path, not a filename**: `window` opens a window, `panel`
   pins a sidebar; at least one is required, defaulting to `window: "/"`.
@@ -165,6 +174,7 @@ if (url.pathname === "/api/send") {
 | `env.PROC` | managed subprocesses: `spawn(cmd, args, cwd)` / `exec(…)` / `list()` / `log(id, tail)` / `kill(id)` |
 | `env.FS` | the user's real files (relative to the workspace root): `list` / `read` / `readBase64` / `write` / `writeBase64` / `mkdir` / `delete` |
 | `env.UI` | the shell: `toast(text)` / `openApp(id, route)` / `openExternal(url)` |
+| `env.APPS` | the app store: `installed()` / `install(id, version, { force? })` / `remove(id)` / `publish(id, notes?)` / `store(path)` (GET on `wandesk.ai/api/store/…`). A package is the app directory as a .tgz without `node_modules` and `data.db`, so it ships `src/` and can be modified after install |
 | `env.log(...)` | server-side logs flow back to the kernel console — so the AI can see what it's debugging in its own backend |
 
 The frontend also has a mirrored SDK at `<script src="/_wd/sdk.js">`, used only when

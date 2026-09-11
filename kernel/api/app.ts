@@ -11,6 +11,7 @@ import { aiAsk, aiRun, aiStream, aiTasks } from "../syscall/ai.js";
 import { procSpawn, procList, procLog, procKill, procExec } from "../syscall/proc.js";
 import { fsList, fsRead, fsReadBase64, fsWrite, fsWriteBase64, fsMkdir, fsDelete } from "../syscall/fs.js";
 import { uiToast, uiOpenApp, uiOpenExternal } from "../syscall/ui.js";
+import { installedApps, installApp, removeApp, publishApp, storeFetch } from "../apps/store.js";
 
 type Body = Record<string, any>;
 
@@ -50,6 +51,13 @@ const HANDLERS: Record<string, (appId: string, body: Body) => unknown | Promise<
   "ui-toast": (appId, b) => uiToast(appId, String(b.text || ""), String(b.kind || "info")),
   "ui-open-app": (appId, b) => uiOpenApp(appId, String(b.appId || ""), String(b.route || "/")),
   "ui-open-external": (appId, b) => uiOpenExternal(appId, String(b.url || "")),
+
+  // ── env.APPS: the store (installed list, install / update, remove, publish, catalog passthrough) ──
+  "apps-installed": () => ({ apps: installedApps() }),
+  "apps-install": (_appId, b) => installApp(String(b.id || ""), String(b.version || ""), { force: Boolean(b.force) }),
+  "apps-remove": (_appId, b) => removeApp(String(b.id || "")),
+  "apps-publish": (_appId, b) => publishApp(String(b.id || ""), String(b.notes || "")),
+  "apps-store": (_appId, b) => storeFetch(String(b.path || ""), b.body),
 
   // ── Server-side logs: the AI debugging an app's backend needs to be able to see these ──
   "log": (appId, b) => { console.log(`[app:${appId}]`, String(b.message || "")); return { ok: true }; },

@@ -3,6 +3,8 @@
   "name": "Ledger",
   "icon": "👛",
   "description": "A skeuomorphic black leather passbook — gold-stamped title, dot-matrix ledger pages, browse by month, every withdrawal and deposit recorded in neat rows.",
+  "version": "1.0.0",
+  "author": "Sider",
   "mounts": {
     "window": "/"
   }

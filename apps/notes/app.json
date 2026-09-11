@@ -3,6 +3,8 @@
   "name": "Notebook",
   "icon": "📔",
   "description": "A skeuomorphic leather notebook — write across pages, browse the index, mark with a ribbon bookmark, and let AI help you continue and polish.",
+  "version": "1.0.0",
+  "author": "Sider",
   "mounts": {
     "window": "/"
   }

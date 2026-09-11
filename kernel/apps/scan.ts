@@ -1,7 +1,7 @@
 // The app registry = a directory scan. No array, no import manifest.
 //
 //   <workspace>/apps/<id>/
-//     app.json    manifest — four fields: id / name / icon / mounts
+//     app.json    manifest: id / name / icon / description / version / author / mounts
 //     APP.md      description for the AI: the first paragraph is a one-line summary the kernel injects into every AI call's prompt
 //     server.js   Worker: export default { async fetch(req, env) {…} }
 //     public/     static assets (env.ASSETS reads from here)
@@ -24,6 +24,9 @@ export type AppInfo = {
   description: string;
   /** Mount point = a route path inside the app, not a filename. "window" opens a window, "panel" pins a sidebar panel. */
   mounts: { window?: string; panel?: string };
+  /** semver; the store compares it to decide whether an update exists. Empty when the manifest has none. */
+  version: string;
+  author: string;
   dir: string;
   /** The full text of APP.md (empty string if there isn't one). */
   doc: string;
@@ -79,6 +82,8 @@ const readManifest = (dir: string): AppInfo | null => {
       icon: String(raw?.icon || "📦").slice(0, 8),
       description: (localize(raw?.description) || firstParagraph(doc)).slice(0, 200),
       mounts,
+      version: /^\d+\.\d+\.\d+$/.test(String(raw?.version || "")) ? String(raw.version) : "",
+      author: String(raw?.author || "").slice(0, 40),
       dir,
       doc,
     };

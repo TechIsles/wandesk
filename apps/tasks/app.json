@@ -3,6 +3,8 @@
   "name": "Tasks",
   "icon": "📋",
   "description": "Tasks: every AI call made by any app — what was asked, what came back, tools, tokens and timing — plus the conversations running right now.",
+  "version": "1.0.0",
+  "author": "Sider",
   "mounts": {
     "window": "/"
   }

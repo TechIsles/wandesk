@@ -3,6 +3,8 @@
   "name": "Dusk Racer",
   "icon": "🏎️",
   "description": "A three-lap arcade race on a dusk-lit track: battle AI rivals for first place, drift to refill nitro, and floor it on the straights.",
+  "version": "1.0.0",
+  "author": "Sider",
   "mounts": {
     "window": "/"
   }

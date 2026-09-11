@@ -3,5 +3,9 @@
   "name": "Files",
   "icon": "🗂",
   "description": "The real files in your workspace -- this is also where the apps live.",
-  "mounts": { "window": "/" }
+  "version": "1.0.0",
+  "author": "Sider",
+  "mounts": {
+    "window": "/"
+  }
 }

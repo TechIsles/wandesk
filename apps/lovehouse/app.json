@@ -3,6 +3,8 @@
   "name": "Love House",
   "icon": "💕",
   "description": "Virtual dating — chat and go on dates with Su Wan, watch affection rise as you connect, and every important moment gets saved to your relationship journal.",
+  "version": "1.0.0",
+  "author": "Sider",
   "mounts": {
     "window": "/"
   }

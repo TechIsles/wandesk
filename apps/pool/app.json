@@ -3,6 +3,8 @@
   "name": "Pool",
   "icon": "🎱",
   "description": "A green-felt pool table — drag the cue ball to aim and power up, with realistic collisions and friction. Sink the colored balls one by one.",
+  "version": "1.0.0",
+  "author": "Sider",
   "mounts": {
     "window": "/"
   }

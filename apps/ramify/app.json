@@ -3,6 +3,8 @@
   "name": "Ramify",
   "icon": "🌿",
   "description": "Creative-branching canvas: one brief becomes several directions, each a self-contained HTML, Markdown or SVG piece; branch from any version into a tree and compare.",
+  "version": "1.0.0",
+  "author": "Sider",
   "mounts": {
     "window": "/"
   }
