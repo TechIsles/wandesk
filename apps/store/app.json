@@ -3,7 +3,7 @@
   "name": "Store",
   "icon": "🛍️",
   "description": "App store: browse and install apps, keep them updated, and publish your own — every package ships its source.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "Sider",
   "mounts": {
     "window": "/"

@@ -48,6 +48,16 @@ const readManifest = (dir: string): Record<string, any> => JSON.parse(fs.readFil
 const assertId = (id: string) => { if (!APP_ID.test(id)) throw new Error(`invalid app id: ${id}`); return id; };
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "wandesk-store-"));
 
+/** The store is for signed-in desktops: every request carries the account's gateway key, the identity the AI gateway uses. */
+const authHeaders = (): Record<string, string> => {
+  const key = readSettings().gatewayKey || "";
+  return key ? { authorization: `Bearer ${key}` } : {};
+};
+const errorOf = async (res: Response, fallback: string) => {
+  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  return String(data.error || fallback);
+};
+
 /** Installed apps with their version, author and whether the user changed them since install. */
 export const installedApps = () => {
   const stamp = readStamp();
@@ -91,8 +101,8 @@ export const installApp = async (id: string, version: string, opts: { force?: bo
     if (modified) return { installed: false as const, modified: true as const, message: `apps/${id} was modified locally; updating would overwrite your changes` };
   }
 
-  const res = await fetch(`${WANDESK_SITE}/api/store/apps/${id}/versions/${version}/package`);
-  if (!res.ok) throw new Error(`download failed: HTTP ${res.status}`);
+  const res = await fetch(`${WANDESK_SITE}/api/store/apps/${id}/versions/${version}/package`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(await errorOf(res, `download failed: HTTP ${res.status}`));
   const work = tmp();
   const archive = path.join(work, "pkg.tgz");
   fs.writeFileSync(archive, Buffer.from(await res.arrayBuffer()));
@@ -132,10 +142,8 @@ export const removeApp = (id: string) => {
   return { removed: true as const };
 };
 
-/** Pack apps/<id>/ and send it to the store with the signed-in account's gateway key. */
+/** Pack apps/<id>/ and send it to the store under the signed-in account. */
 export const publishApp = async (id: string, notes = "") => {
-  const key = readSettings().gatewayKey || "";
-  if (!key) throw new Error("Sign in to your Wandesk account (Settings) before publishing");
   const { file, manifest, readme, hasSource } = packApp(id);
   const form = new FormData();
   form.set("manifest", JSON.stringify(manifest));
@@ -143,10 +151,10 @@ export const publishApp = async (id: string, notes = "") => {
   form.set("notes", String(notes || "").slice(0, 2000));
   form.set("has_source", hasSource ? "1" : "0");
   form.set("package", new Blob([fs.readFileSync(file)], { type: "application/gzip" }), path.basename(file));
-  const res = await fetch(`${WANDESK_SITE}/api/store/publish`, { method: "POST", headers: { authorization: `Bearer ${key}` }, body: form });
-  const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  const res = await fetch(`${WANDESK_SITE}/api/store/publish`, { method: "POST", headers: authHeaders(), body: form });
   fs.rmSync(path.dirname(file), { recursive: true, force: true });
-  if (!res.ok) throw new Error(String(body.error || `publish failed: HTTP ${res.status}`));
+  if (!res.ok) throw new Error(await errorOf(res, `publish failed: HTTP ${res.status}`));
+  const body = (await res.json()) as Record<string, unknown>;
   // Publishing our own copy: stamp it so a later "update" from the store recognises it as untouched
   const stamp = readStamp();
   stamp[id] = { version: String(manifest.version), fingerprint: fingerprint(path.join(appsDir(), id)) };
@@ -154,13 +162,11 @@ export const publishApp = async (id: string, notes = "") => {
   return body;
 };
 
-/** The store API: GET, or POST when a body is given. The account's key goes along when signed in (/mine, /review). */
+/** The store API: GET, or POST when a body is given. */
 export const storeFetch = async (pathname: string, body?: unknown) => {
-  const key = readSettings().gatewayKey || "";
-  const headers: Record<string, string> = key ? { authorization: `Bearer ${key}` } : {};
+  const headers = authHeaders();
   if (body !== undefined) headers["content-type"] = "application/json";
   const res = await fetch(`${WANDESK_SITE}${pathname}`, { method: body !== undefined ? "POST" : "GET", headers, body: body !== undefined ? JSON.stringify(body) : undefined });
-  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-  if (!res.ok) throw new Error(String(data.error || `store request failed: HTTP ${res.status}`));
-  return data;
+  if (!res.ok) throw new Error(await errorOf(res, `store request failed: HTTP ${res.status}`));
+  return (await res.json()) as Record<string, unknown>;
 };

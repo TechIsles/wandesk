@@ -174,7 +174,7 @@ if (url.pathname === "/api/send") {
 | `env.PROC` | managed subprocesses: `spawn(cmd, args, cwd)` / `exec(…)` / `list()` / `log(id, tail)` / `kill(id)` |
 | `env.FS` | the user's real files (relative to the workspace root): `list` / `read` / `readBase64` / `write` / `writeBase64` / `mkdir` / `delete` |
 | `env.UI` | the shell: `toast(text)` / `openApp(id, route)` / `openExternal(url)` |
-| `env.APPS` | the app store: `installed()` / `install(id, version, { force? })` / `remove(id)` / `publish(id, notes?)` / `store(path)` (GET on `wandesk.ai/api/store/…`). A package is the app directory as a .tgz without `node_modules` and `data.db`, so it ships `src/` and can be modified after install |
+| `env.APPS` | the app store: `installed()` / `install(id, version, { force? })` / `remove(id)` / `publish(id, notes?)` / `store(path, body?)` (GET, or POST with a JSON body, on `wandesk.ai/api/store/…`; every store request carries the signed-in account's key, so the store needs a Wandesk account). A package is the app directory as a .tgz without `node_modules` and `data.db`, so it ships `src/` and can be modified after install. A published version is reviewed before it goes on sale; the version on sale stays available meanwhile |
 | `env.log(...)` | server-side logs flow back to the kernel console — so the AI can see what it's debugging in its own backend |
 
 The frontend also has a mirrored SDK at `<script src="/_wd/sdk.js">`, used only when
