@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>商店原型 · 完整交互</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+/* ── 商店原型:侧栏导航 + 内容页(发现 / 搜索 / 应用页 / 资料库 / 发布 / 审核)。
+      全部状态在页内可走通:登录门、安装进度、更新、评分评论与回复、提交→审核→打回→重交→上架→下架。
+      顶部灰条是原型用的角色切换,不属于产品。 ── */
+:root{
+  --surface:#fff;--side:linear-gradient(180deg,#e6f3fd 0%,#c3ddf4 40%,#9ccbec 70%,#b3d5f0 100%);
+  --t1:rgba(16,19,28,.96);--t2:rgba(19,23,36,.86);--t3:rgba(26,32,52,.58);--t4:rgba(28,34,56,.42);
+  --accent:#3b82f6;--accent-deep:#1e3287;--accent-soft:rgba(59,130,246,.1);--ring:rgba(98,165,244,.35);
+  --edge:#cfe0f4;--edge-soft:#e6eef7;--fill:rgba(95,136,176,.09);--hover:rgba(95,136,176,.12);
+  --danger:#b3382a;--danger-soft:#fdeceb;--ok:#159a6e;--ok-soft:#e4f6ef;--warn:#b26a08;--warn-soft:#fdf1df;--star:#f0a30a;
+  --mono:ui-monospace,"SF Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{font:14px/1.55 -apple-system,"PingFang SC","Helvetica Neue",sans-serif;color:var(--t1);background:#f0f0f0;overflow:hidden}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;text-align:left}
+input,textarea,select{font:inherit;color:inherit}
+code{font:12px var(--mono);background:var(--fill);padding:1px 5px;border-radius:4px}
+::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:#cbd3dd;border-radius:6px;border:2px solid transparent;background-clip:content-box}
+
+/* 原型工具条 */
+.devbar{position:absolute;left:18px;right:18px;top:0;height:18px;display:flex;align-items:center;gap:10px;font-size:11px;color:#555;z-index:5}
+.devbar b{font-weight:600}
+.devbar button{font-size:11px;padding:0 7px;height:15px;border-radius:3px;border:1px solid #bbb;background:#fafafa;color:#333}
+.devbar button.on{background:#333;color:#fff;border-color:#333}
+
+/* 窗口壳 */
+.win{position:absolute;inset:22px 18px 18px;border:1px solid #6c8fb1;border-radius:8px;overflow:hidden;background:var(--surface);
+  box-shadow:0 24px 48px rgba(20,45,75,.3),0 4px 12px rgba(20,45,75,.18);display:flex;flex-direction:column}
+.winbar{height:34px;flex:none;display:flex;align-items:center;gap:8px;padding:0 12px;font-size:13px;font-weight:600;color:#173d63;
+  background:linear-gradient(180deg,#e9f4fd,#c9e0f5);border-bottom:1px solid #8fb0cf;position:relative}
+.winbar::after{content:"";position:absolute;left:0;right:0;top:0;height:50%;background:linear-gradient(180deg,rgba(255,255,255,.8),rgba(255,255,255,.05));pointer-events:none}
+.winbar .btns{margin-left:auto;display:flex;gap:6px}
+.winbar .btns i{width:30px;height:18px;border-radius:3px;border:1px solid #7f9fbf;background:linear-gradient(180deg,#fff,#d6e6f6)}
+.winbar .btns i.x{background:linear-gradient(180deg,#f7b5a8,#d9483a);border-color:#a03a2c}
+.body{flex:1;min-height:0;display:flex;position:relative}
+
+/* 侧栏 */
+.side{width:212px;flex:none;background:var(--side);border-right:1px solid #5f88b0;position:relative;display:flex;flex-direction:column;padding:10px 8px}
+.side::after{content:"";position:absolute;left:0;right:0;top:0;height:34%;background:linear-gradient(180deg,rgba(255,255,255,.8),rgba(255,255,255,.05));pointer-events:none}
+.side>*{position:relative;z-index:1}
+.search{display:flex;align-items:center;gap:7px;height:30px;padding:0 9px;border-radius:7px;background:rgba(255,255,255,.72);border:1px solid #9dbad8;box-shadow:inset 0 1px 2px rgba(20,50,80,.1)}
+.search svg{width:13px;height:13px;stroke:#4b6a8a;fill:none;stroke-width:2;stroke-linecap:round}
+.search input{flex:1;min-width:0;border:0;background:none;outline:0;font-size:13px;color:#16324f}
+.search input::placeholder{color:#6d8aa8}
+.search kbd{font:10.5px var(--mono);color:#5d7a98;border:1px solid #9dbad8;border-radius:3px;padding:0 4px;background:rgba(255,255,255,.6)}
+.nav{margin-top:12px;display:flex;flex-direction:column;gap:1px}
+.nav .grp{font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#456787;padding:10px 10px 4px}
+.nav a{display:flex;align-items:center;gap:9px;height:30px;padding:0 10px;border-radius:6px;font-size:13px;color:#1b2f47;cursor:pointer;border:1px solid transparent;text-decoration:none}
+.nav a:hover{background:var(--hover)}
+.nav a.on{background:linear-gradient(180deg,#fff,#e2f0fc);border-color:#bcd8f2;box-shadow:inset 0 0 0 1px #fff;font-weight:600}
+.nav a .ic{width:16px;text-align:center;font-size:14px}
+.nav a .n{margin-left:auto;font-size:11px;font-weight:600;min-width:18px;height:17px;padding:0 5px;border-radius:9px;background:var(--accent);color:#fff;display:grid;place-items:center}
+.nav a .n.warn{background:var(--warn)}
+.side-foot{margin-top:auto;display:flex;align-items:center;gap:9px;padding:8px 8px 2px;font-size:12.5px;color:#2c4a68}
+.side-foot .av{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#7fb3ee,#3b82f6);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center}
+.side-foot .who{flex:1;min-width:0;line-height:1.2}
+.side-foot .who b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side-foot .who span{font-size:11px;color:#5d7a98}
+
+/* 内容区 */
+.main{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--surface);position:relative}
+.top{height:44px;flex:none;display:flex;align-items:center;gap:10px;padding:0 22px;border-bottom:1px solid var(--edge-soft)}
+.top .back{width:28px;height:28px;border-radius:6px;display:grid;place-items:center;color:var(--t3)}
+.top .back:hover{background:var(--fill);color:var(--t1)}
+.top .back svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.top h1{font-size:14px;font-weight:600;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top .sub{font-size:12.5px;color:var(--t4)}
+.scroll{flex:1;min-height:0;overflow:auto;scroll-behavior:smooth}
+.page{max-width:980px;margin:0 auto;padding:22px 28px 60px}
+.page.narrow{max-width:820px}
+h2.sec{font-size:17px;font-weight:700;margin:26px 0 12px;display:flex;align-items:baseline;gap:10px}
+h2.sec:first-child{margin-top:0}
+h2.sec small{font-size:12.5px;font-weight:400;color:var(--t4)}
+h2.sec .more{margin-left:auto;font-size:12.5px;font-weight:500;color:var(--accent)}
+.hint{font-size:12.5px;color:var(--t3);line-height:1.6;margin:0 0 12px}
+
+/* 按钮 */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:30px;padding:0 14px;border-radius:7px;font-size:13px;font-weight:500;color:var(--t1);background:#fff;border:1px solid var(--edge);white-space:nowrap;transition:background .12s,filter .12s}
+.btn:hover{background:#f6f9fd}
+.btn.pri{color:#fff;background:var(--accent);border-color:transparent;font-weight:600}
+.btn.pri:hover{filter:brightness(1.06)}
+.btn.danger{color:#fff;background:var(--danger);border-color:transparent;font-weight:600}
+.btn.sm{height:26px;padding:0 11px;font-size:12.5px;border-radius:6px}
+.btn.pill{border-radius:999px;height:28px;padding:0 15px;font-weight:600}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.quiet{border-color:transparent;color:var(--accent)}
+.btn.quiet:hover{background:var(--accent-soft)}
+.link{font-size:12.5px;color:var(--accent);font-weight:500}
+.link:hover{text-decoration:underline}
+.link.danger{color:var(--danger)}
+/* 安装按钮的四态:安装 → 进度 → 打开;更新 */
+.get{position:relative;overflow:hidden;min-width:74px}
+.get.busy{color:transparent;pointer-events:none;background:var(--accent-soft);border-color:transparent}
+.get.busy::before{content:"";position:absolute;left:0;top:0;bottom:0;width:var(--p,0%);background:var(--accent);transition:width .25s}
+.get.busy::after{content:attr(data-p);position:absolute;inset:0;display:grid;place-items:center;color:var(--accent-deep);font-size:12px;font-weight:600}
+
+/* 状态胶囊 */
+.pill{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:1px 8px;border-radius:999px;color:var(--t3);background:var(--fill);white-space:nowrap}
+.pill.ok{color:var(--ok);background:var(--ok-soft)}.pill.warn{color:var(--warn);background:var(--warn-soft)}.pill.bad{color:var(--danger);background:var(--danger-soft)}.pill.mute{color:var(--t4)}
+.stars{display:inline-flex;gap:1px;color:#d7dee8;line-height:1;letter-spacing:-.5px}
+.stars i{font-style:normal}.stars i.on{color:var(--star)}.stars i.half{background:linear-gradient(90deg,var(--star) 50%,#d7dee8 50%);-webkit-background-clip:text;color:transparent}
+
+/* 发现页 */
+.hero{position:relative;border-radius:14px;overflow:hidden;min-height:250px;display:flex;align-items:flex-end;padding:24px 26px;color:#fff;cursor:pointer;
+  background:radial-gradient(1200px 400px at 10% 0%,#4f8bf0 0%,#1e3a8a 45%,#0f1f4d 100%)}
+.hero::before{content:attr(data-icon);position:absolute;right:40px;top:-10px;font-size:220px;opacity:.14;filter:blur(1px)}
+.hero .k{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;opacity:.8;margin-bottom:6px}
+.hero h3{font-size:28px;margin:0 0 6px;font-weight:800;letter-spacing:-.01em}
+.hero p{margin:0;max-width:520px;opacity:.9;font-size:14px}
+.hero .row{display:flex;align-items:center;gap:14px;margin-top:16px}
+.hero .btn{background:#fff;color:var(--accent-deep);border-color:transparent;font-weight:600}.hero .btn.busy{background:rgba(255,255,255,.25)}.hero .btn.busy::after{color:#fff}
+.hero .meta{font-size:12.5px;opacity:.85;display:flex;gap:12px;align-items:center}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:16px 0 4px}
+.chip{height:28px;padding:0 12px;border-radius:999px;border:1px solid var(--edge);font-size:12.5px;color:var(--t2);background:#fff}
+.chip:hover{background:#f6f9fd}.chip.on{background:var(--t1);color:#fff;border-color:var(--t1)}
+.rail{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(300px,1fr);gap:12px;overflow-x:auto;padding:4px 2px 12px;scroll-snap-type:x mandatory}
+.rail::-webkit-scrollbar{height:6px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.card{display:flex;gap:12px;align-items:center;padding:12px 12px 12px 12px;border-radius:12px;border:1px solid var(--edge-soft);background:#fff;cursor:pointer;scroll-snap-align:start;transition:border-color .12s,box-shadow .12s,transform .12s}
+.card:hover{border-color:var(--edge);box-shadow:0 6px 18px rgba(30,60,100,.08);transform:translateY(-1px)}
+.card .ic{width:56px;height:56px;border-radius:14px;display:grid;place-items:center;font-size:30px;flex:none;background:linear-gradient(180deg,#f6f9fd,#e9f0f8);border:1px solid var(--edge-soft)}
+.card .m{flex:1;min-width:0;display:flex;flex-direction:column}
+.card .n{font-size:14px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .d{font-size:12.5px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.card .r{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--t4);margin-top:4px}
+.card .r .stars{font-size:11px}
+.card .btn{flex:none}
+.rank{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:2px 24px}
+.rank .card{border:0;border-bottom:1px solid var(--edge-soft);border-radius:0;padding:10px 4px;transform:none;box-shadow:none}
+.rank .card .no{width:20px;font:600 14px var(--mono);color:var(--t4);text-align:center;flex:none}
+.rank .card .ic{width:46px;height:46px;font-size:24px;border-radius:11px}
+.empty{padding:60px 20px;text-align:center;color:var(--t4)}
+.empty b{display:block;color:var(--t2);font-weight:600;font-size:15px;margin-bottom:4px}
+
+/* 应用页 */
+.ahead{display:flex;gap:20px;align-items:flex-start}
+.ahead .ic{width:112px;height:112px;border-radius:26px;display:grid;place-items:center;font-size:62px;flex:none;background:linear-gradient(180deg,#f6f9fd,#e5edf7);border:1px solid var(--edge-soft);box-shadow:0 8px 24px rgba(30,60,100,.1)}
+.ahead .t{flex:1;min-width:0}
+.ahead h3{font-size:26px;margin:2px 0 2px;font-weight:800;letter-spacing:-.01em}
+.ahead .by{font-size:14px;color:var(--t3)}
+.ahead .by b{color:var(--accent);font-weight:500;cursor:pointer}
+.ahead .act{display:flex;align-items:center;gap:10px;margin-top:14px}
+.ahead .act .note{font-size:12px;color:var(--t4)}
+.facts{display:flex;gap:0;margin:22px 0 4px;border-top:1px solid var(--edge-soft);border-bottom:1px solid var(--edge-soft)}
+.fact{flex:1;padding:12px 6px;text-align:center;border-right:1px solid var(--edge-soft)}
+.fact:last-child{border-right:0}
+.fact .k{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--t4)}
+.fact .v{font-size:16px;font-weight:700;margin-top:2px;line-height:1.2}
+.fact .v small{font-size:11px;font-weight:500;color:var(--t4);display:block}
+.fact .v .stars{font-size:11px;display:flex;justify-content:center;margin-top:2px}
+.shots{display:flex;gap:10px;overflow-x:auto;padding:4px 2px 10px;margin-top:18px;scroll-snap-type:x mandatory}
+.shot{flex:none;width:420px;height:262px;border-radius:12px;border:1px solid var(--edge);overflow:hidden;scroll-snap-align:start;position:relative;display:flex;flex-direction:column}
+.shot .bar{height:22px;background:linear-gradient(180deg,#e9f4fd,#c9e0f5);border-bottom:1px solid #a9c5de;display:flex;align-items:center;padding:0 8px;gap:4px}
+.shot .bar i{width:8px;height:8px;border-radius:50%;background:#98b5d0}
+.shot .cv{flex:1;padding:14px;display:grid;gap:8px;grid-template-columns:1fr 2fr;background:#fbfcfe}
+.shot .cv div{border-radius:6px;background:var(--fill)}
+.shot .cv div:nth-child(1){grid-row:span 3}
+.shot .cap{position:absolute;left:10px;bottom:8px;font-size:11px;color:#fff;background:rgba(0,0,0,.45);padding:2px 8px;border-radius:999px}
+.desc{font-size:14.5px;line-height:1.7;color:var(--t2);max-width:720px}
+.desc.clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.whatsnew{display:flex;justify-content:space-between;gap:20px;padding:14px 16px;border-radius:10px;background:#f7fafd;border:1px solid var(--edge-soft)}
+.whatsnew .v{font:600 13px var(--mono)}
+.whatsnew .d{font-size:12px;color:var(--t4);margin-top:2px}
+.whatsnew p{margin:0;flex:1;font-size:13.5px;color:var(--t2)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+.readme{font-size:13.5px;line-height:1.7;color:var(--t2)}
+.readme h4{margin:14px 0 4px;font-size:13.5px;font-weight:700;color:var(--t1)}
+.readme ul{margin:6px 0;padding-left:20px}
+.info{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px 24px}
+.info div{padding:10px 0;border-bottom:1px solid var(--edge-soft);font-size:13px}
+.info .k{font-size:11.5px;color:var(--t4);margin-bottom:2px}
+.info .v{font-weight:500}
+.vers{display:flex;flex-direction:column;gap:0}
+.ver{display:flex;gap:12px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--edge-soft);font-size:13px}
+.ver b{font:600 13px var(--mono);min-width:48px}
+.ver .d{color:var(--t4);font-size:12px;min-width:90px}
+.ver .n{flex:1;color:var(--t2)}
+.ver .reason{flex-basis:100%;color:var(--danger);font-size:12.5px;padding-left:60px}
+.manage{margin-top:14px;padding:12px 14px;border-radius:10px;border:1px dashed var(--edge);display:flex;align-items:center;gap:12px;font-size:13px;color:var(--t2)}
+.manage b{font-weight:600}
+.manage .sp{flex:1}
+.banner{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;font-size:13px;margin-top:14px}
+.banner.bad{background:var(--danger-soft);color:var(--danger)}.banner.warn{background:var(--warn-soft);color:var(--warn)}.banner.ok{background:var(--ok-soft);color:var(--ok)}
+.banner .sp{flex:1}
+
+/* 评分与评论 */
+.rsum{display:grid;grid-template-columns:130px 1fr auto;gap:24px;align-items:center;padding:16px 18px;border-radius:12px;background:#f7fafd;border:1px solid var(--edge-soft)}
+.rsum .big{text-align:center}
+.rsum .big b{font-size:44px;font-weight:800;line-height:1;letter-spacing:-.02em}
+.rsum .big .stars{font-size:14px;display:flex;justify-content:center;margin:4px 0 2px}
+.rsum .big span{font-size:12px;color:var(--t4)}
+.bars{display:flex;flex-direction:column;gap:4px;max-width:340px}
+.bar{display:grid;grid-template-columns:14px 1fr 26px;gap:8px;align-items:center;font-size:11.5px;color:var(--t4)}
+.bar i{display:block;height:7px;border-radius:4px;background:#e6ecf4;overflow:hidden}
+.bar i b{display:block;height:100%;background:var(--star);border-radius:4px;transition:width .4s}
+.compose{margin-top:14px;padding:14px 16px;border-radius:12px;border:1px solid var(--edge);background:#fff;display:none;flex-direction:column;gap:10px}
+.compose.open{display:flex}
+.compose .row{display:flex;align-items:center;gap:12px}
+.compose .row b{font-weight:600}
+.pick{display:inline-flex;gap:2px;font-size:26px;color:#d7dee8;cursor:pointer}
+.pick i{font-style:normal;transition:transform .08s}
+.pick i.on{color:var(--star)}.pick i:hover{transform:scale(1.15)}
+.compose textarea,.sheet textarea,.sheet input[type=text]{width:100%;padding:9px 11px;border:1px solid var(--edge);border-radius:8px;outline:0;resize:vertical;line-height:1.55;background:#fff}
+.compose textarea:focus,.sheet textarea:focus,.sheet input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.compose .foot{display:flex;justify-content:space-between;align-items:center}
+.compose .foot span{font-size:12px;color:var(--t4)}
+.reviews{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.review{padding:14px 16px;border-radius:12px;border:1px solid var(--edge-soft);background:#fff;display:flex;flex-direction:column;gap:6px}
+.review.mine{border-color:#bcd8f2;background:#f5f9fe}
+.review .h{display:flex;align-items:center;gap:8px;font-size:12.5px}
+.review .h .av{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#cfd8e3,#9fb1c6);color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center}
+.review .h b{font-weight:600}
+.review .h .d{color:var(--t4);margin-left:auto}
+.review .h .stars{font-size:12px}
+.review p{margin:0;font-size:13.5px;line-height:1.6;white-space:pre-wrap}
+.review .tools{display:flex;gap:12px;margin-top:2px}
+.review .tools .link{font-size:12px}
+.reply{margin-top:4px;padding:10px 12px;border-radius:8px;background:#f7fafd;border-left:3px solid var(--accent);font-size:13px}
+.reply b{font-weight:600;font-size:12.5px}
+.reply .d{color:var(--t4);font-size:11.5px;margin-left:8px}
+.reply p{margin:3px 0 0}
+.helpful{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--t4);margin-top:4px}
+.helpful button{color:var(--t3);border:1px solid var(--edge-soft);border-radius:999px;padding:1px 9px;font-size:11px}
+.helpful button.on{color:var(--accent);border-color:var(--accent)}
+
+/* 资料库 */
+.rows{display:flex;flex-direction:column;gap:6px}
+.row-app{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:12px;border:1px solid var(--edge-soft);background:#fff}
+.row-app .ic{width:44px;height:44px;border-radius:11px;display:grid;place-items:center;font-size:24px;flex:none;background:linear-gradient(180deg,#f6f9fd,#e9f0f8);border:1px solid var(--edge-soft)}
+.row-app .m{flex:1;min-width:0}
+.row-app .n{font-size:14px;font-weight:650;display:flex;align-items:center;gap:8px}
+.row-app .n code{font-size:11.5px}
+.row-app .d{font-size:12.5px;color:var(--t3);margin-top:2px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.row-app .acts{display:flex;gap:8px;flex:none}
+.row-app.tall{display:block}
+.row-app.tall .line{display:flex;align-items:center;gap:12px}
+.timeline{margin:12px 0 2px 56px;padding-left:14px;border-left:2px solid var(--edge);display:flex;flex-direction:column;gap:8px}
+.tl{position:relative;font-size:12.5px;color:var(--t2);display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.tl::before{content:"";position:absolute;left:-19px;top:5px;width:8px;height:8px;border-radius:50%;background:#c3d2e4;border:2px solid #fff;box-shadow:0 0 0 1px var(--edge)}
+.tl.ok::before{background:var(--ok)}.tl.bad::before{background:var(--danger)}.tl.warn::before{background:var(--warn)}
+.tl b{font:600 12.5px var(--mono)}
+.tl .d{color:var(--t4)}
+.tl .reason{flex-basis:100%;color:var(--danger);padding:6px 10px;border-radius:6px;background:var(--danger-soft)}
+.tl .link{font-size:12px}
+
+/* 审核 */
+.queue{display:grid;grid-template-columns:320px 1fr;gap:18px;align-items:start}
+.qlist{display:flex;flex-direction:column;gap:6px}
+.q{padding:10px 12px;border-radius:10px;border:1px solid var(--edge-soft);cursor:pointer;display:flex;gap:10px;align-items:center}
+.q:hover{background:#f7fafd}.q.on{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.q .ic{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;font-size:20px;background:var(--fill);flex:none}
+.q .n{font-size:13.5px;font-weight:600}.q .d{font-size:12px;color:var(--t4)}
+.q .age{margin-left:auto;font-size:11px;color:var(--t4);white-space:nowrap}
+.qdetail{border:1px solid var(--edge-soft);border-radius:12px;padding:18px 20px;position:sticky;top:0}
+.qdetail .h{display:flex;gap:14px;align-items:center}
+.qdetail .ic{width:60px;height:60px;border-radius:14px;display:grid;place-items:center;font-size:32px;background:var(--fill)}
+.qdetail h3{margin:0;font-size:18px}
+.qdetail .by{font-size:12.5px;color:var(--t3)}
+.qdetail .acts{margin-left:auto;display:flex;gap:8px}
+.tabs{display:flex;gap:2px;margin:16px 0 12px;border-bottom:1px solid var(--edge-soft)}
+.tab{height:32px;padding:0 12px;font-size:13px;color:var(--t3);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab.on{color:var(--t1);font-weight:600;border-bottom-color:var(--t1)}
+.checks{display:flex;flex-direction:column;gap:6px}
+.check{display:flex;gap:10px;align-items:center;font-size:13px;padding:8px 10px;border-radius:8px;background:#f7fafd}
+.check i{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:11px;color:#fff;background:var(--ok);font-style:normal;flex:none}
+.check i.warn{background:var(--warn)}.check i.bad{background:var(--danger)}
+.check span{color:var(--t4);margin-left:auto;font-size:12px}
+.tree{font:12.5px/1.7 var(--mono);color:var(--t2);white-space:pre}
+.tree .dim{color:var(--t4)}
+.diff{font:12.5px/1.7 var(--mono);white-space:pre;border-radius:8px;border:1px solid var(--edge-soft);padding:10px 12px;overflow:auto}
+.diff .add{background:#e6f7ee;display:block}.diff .del{background:#fdeceb;display:block}
+.templ{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.templ button{font-size:12px;padding:3px 9px;border-radius:999px;border:1px solid var(--edge);color:var(--t2);background:#fff}
+.templ button:hover{background:var(--fill)}
+
+/* 登录门 */
+.gate{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#fff;z-index:3}
+.gate .box{text-align:center;max-width:440px;padding:20px}
+.gate .ic{font-size:56px;margin-bottom:8px}
+.gate h2{margin:0 0 6px;font-size:20px;font-weight:800}
+.gate p{margin:0 0 16px;color:var(--t3);line-height:1.6}
+.gate .preview{margin-top:26px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;opacity:.55;pointer-events:none;filter:saturate(.7)}
+.gate .preview .card{padding:8px}.gate .preview .card .ic{width:32px;height:32px;font-size:18px;border-radius:9px;margin:0}
+.gate .preview .card .n{font-size:12px}.gate .preview .card .d{display:none}
+.gate .state{margin-top:14px;font-size:12px;color:var(--t4);display:flex;align-items:center;justify-content:center;gap:6px}
+.gate .state i{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:breathe 1.4s ease-in-out infinite}
+@keyframes breathe{0%,100%{opacity:.35}50%{opacity:1}}
+
+/* 表单页(Sheet)与吐司 */
+.scrim{position:absolute;inset:0;background:rgba(21,24,31,.32);display:none;align-items:center;justify-content:center;z-index:6}
+.scrim.open{display:flex}
+.sheet{width:440px;max-width:calc(100% - 40px);max-height:calc(100% - 60px);overflow:auto;background:#fff;border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.28);padding:20px 22px 18px;display:flex;flex-direction:column;gap:12px;animation:pop .16s ease-out}
+.sheet.wide{width:560px}
+@keyframes pop{from{transform:translateY(8px) scale(.98);opacity:0}to{transform:none;opacity:1}}
+.sheet h4{margin:0;font-size:16px;font-weight:700}
+.sheet p{margin:0;font-size:13px;color:var(--t2);line-height:1.6}
+.sheet label{font-size:12.5px;font-weight:600;color:var(--t2);display:block;margin-bottom:5px}
+.sheet .f{display:flex;flex-direction:column}
+.sheet .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
+.sheet .kv{display:flex;gap:10px;font-size:13px;padding:6px 0;border-bottom:1px solid var(--edge-soft)}
+.sheet .kv span{color:var(--t4);min-width:110px}
+.toasts{position:absolute;right:16px;bottom:16px;display:flex;flex-direction:column;gap:6px;z-index:7}
+.toast{padding:9px 14px;border-radius:9px;background:#1d2532;color:#fff;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.25);animation:pop .16s ease-out;display:flex;gap:10px;align-items:center}
+.toast.bad{background:var(--danger)}.toast.ok{background:#1f8f63}
+.toast .link{color:#fff;text-decoration:underline;font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="devbar"><b>原型 · 角色</b>
+  <button data-role="guest">未登录</button><button data-role="user" class="on">普通用户</button><button data-role="dev">发布者</button><button data-role="admin">管理员</button>
+  <span style="margin-left:14px">快捷键:<code style="background:#e6e6e6">/</code> 搜索 · <code style="background:#e6e6e6">Esc</code> 返回 / 关闭</span>
+</div>
+
+<div class="win">
+  <div class="winbar">🛍️ Store <div class="btns"><i></i><i></i><i class="x"></i></div></div>
+  <div class="body">
+    <aside class="side">
+      <label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="q" placeholder="Search apps"><kbd>/</kbd></label>
+      <nav class="nav" id="nav"></nav>
+      <div class="side-foot" id="foot"></div>
+    </aside>
+    <section class="main">
+      <div class="top" id="top"></div>
+      <div class="scroll" id="scroll"><div id="view"></div></div>
+      <div class="gate" id="gate" hidden></div>
+    </section>
+  </div>
+  <div class="scrim" id="scrim"></div>
+  <div class="toasts" id="toasts"></div>
+</div>
+
+<script>
+// ───────────────────────── 数据(原型内存) ─────────────────────────
+const CATS = ["All","Tools","Creativity","Games","Reading","Utilities"];
+const APPS = [
+  app("ramify","Ramify","🌿","Creativity","Creative-branching canvas: one brief becomes several directions, each a self-contained HTML, Markdown or SVG.","Sider","1.2.0",206,412,[["1.2.0","Thumbnails render inside the branch tree; SVG documents are extracted from prose.","2026-09-08"],["1.1.0","Batch generation with per-node error state.","2026-08-22"],["1.0.0","First release.","2026-08-02"]],true),
+  app("tasks","Tasks","📋","Tools","Every AI call made by any app: what was asked, what came back, tools, tokens and cost.","Sider","1.0.3",88,377,[["1.0.3","Token and cost columns; filter by app.","2026-09-05"],["1.0.0","First release.","2026-08-10"]],true),
+  app("weather","Weather","🌤️","Utilities","Live weather and a 7-day forecast from Open-Meteo, with a gradient sky that shifts with the hour.","Sider","1.0.0",64,301,[["1.0.0","First release.","2026-08-10"]],true),
+  app("reader","Reader","📖","Reading","An interactive-fiction e-reader: pick a premise and the AI plays game master.","Sider","1.1.0",140,265,[["1.1.0","Chapter bookmarks and a night palette.","2026-09-01"],["1.0.0","First release.","2026-08-10"]],true),
+  app("pool","Pool","🎱","Games","A green-felt pool table: drag the cue ball to aim and power up, with realistic collisions.","Sider","1.0.0",120,258,[["1.0.0","First release.","2026-08-10"]],true),
+  app("hackernews","Hacker News","📰","Reading","The front page, Ask and Show, with comments folded under each story.","Sider","1.0.0",52,231,[["1.0.0","First release.","2026-08-10"]],true),
+  app("ledger","Ledger","🧁","Tools","Personal accounts: income, spending, categories and a monthly view.","Sider","1.0.0",98,190,[["1.0.0","First release.","2026-08-10"]],true),
+  app("notes","Notebook","📒","Tools","Plain notes with search and pinned pages.","Sider","1.0.0",70,182,[["1.0.0","First release.","2026-08-10"]],true),
+  app("racing","Dusk Racer","🏎️","Games","A three-lap arcade race on a dusk-lit track: battle AI rivals for first place.","Sider","1.0.0",160,171,[["1.0.0","First release.","2026-08-10"]],true),
+  app("poker","Three-Card Poker","🃏","Games","Three-card poker against the house with a running bankroll.","Sider","1.0.0",95,150,[["1.0.0","First release.","2026-08-10"]],true),
+  app("fortune","I Ching","🔮","Reading","Cast a hexagram and read the AI's interpretation.","Sider","1.0.0",44,133,[["1.0.0","First release.","2026-08-10"]],true),
+  app("phone","Phone","📱","Utilities","A phone-shaped shell for small AI-made apps.","Sider","1.0.0",60,99,[["1.0.0","First release.","2026-08-10"]],true),
+  app("aircraft","Aircraft","🛩️","Games","Fly through rings; the AI scores your run.","Sider","1.0.0",130,92,[["1.0.0","First release.","2026-08-10"]],true),
+  app("lovehouse","Love House","💕","Games","Two households, one budget: a small life sim.","Sider","1.0.0",110,80,[["1.0.0","First release.","2026-08-10"]],true),
+  app("files","Files","🗂️","Utilities","Browse the workspace, open anything, drop files in.","Sider","1.0.0",22,77,[["1.0.0","First release.","2026-08-10"]],false),
+  app("assistant","Assistant","💬","Tools","The desktop's assistant: conversations that can run commands and edit apps.","Sider","1.3.0",240,410,[["1.3.0","Paper layout; process folded into a rail.","2026-09-06"],["1.0.0","First release.","2026-08-10"]],true),
+  app("pixelnote","PixelNote","🖍️","Creativity","Sticky notes you can draw on. Made by a community publisher.","Ana Reyes","0.3.1",38,64,[["0.3.1","Pen pressure on trackpads.","2026-09-09"],["0.3.0","Board sharing between windows.","2026-08-30"]],true),
+  app("kanban-lite","Kanban Lite","🗃️","Tools","Three columns, drag cards, nothing else.","Marco B.","1.0.2",41,58,[["1.0.2","Card colors.","2026-09-04"],["1.0.0","First release.","2026-08-20"]],true),
+];
+function app(id,name,icon,cat,desc,author,version,kb,installs,versions,src){return {id,name,icon,cat,desc,author,version,kb,installs,versions:versions.map(([v,n,d])=>({v,n,d,status:"approved"})),src,
+  listed:true,delist:null,reviews:[], readme:`## ${name}\n\n${desc}\n\n### Data\nOne table of its own in the app's database.\n\n### Editing\n- Frontend: edit \`src/\`, then \`npm install && npm run build\`.\n- Backend: edit \`server.js\`; it takes effect on the next request.`}}
+const PEOPLE=["Jun Park","Mia Chen","Oliver Grant","Sofia Ruiz","Lena Fischer","Noah Kim","Aria Patel","Tom Walsh"];
+const TEXTS=["Exactly what I wanted. Installed, opened, done.","Solid. The update notes are honest and the app does what the page says.","Good, but the window is a little small on my display.","Three stars until the search gets faster.","Beautiful. The source is readable and I already changed the palette.","Works. Wish it remembered the last tab."];
+let seed=7;const rnd=()=>{seed=(seed*9301+49297)%233280;return seed/233280};
+APPS.forEach((a,i)=>{const n=Math.floor(rnd()*7);for(let k=0;k<n;k++){const r=Math.floor(rnd()*5)+1;a.reviews.push({user:PEOPLE[(i+k)%PEOPLE.length],uid:100+((i*3+k)%PEOPLE.length),rating:r>2?r:4,body:TEXTS[(i+k)%TEXTS.length],d:`2026-0${8+(k%2)}-${10+k}`,helpful:Math.floor(rnd()*9),reply:k===0&&rnd()>.6?{t:"Thank you — noted for the next version.",d:"2026-09-06"}:null,mine:false,me:false})}});
+APPS.find(a=>a.id==="pixelnote").reviews.push({user:"Noah Kim",uid:105,rating:5,body:"Pen pressure finally works on the trackpad. Sticky notes that feel like paper.",d:"2026-09-10",helpful:2,reply:null},{user:"Aria Patel",uid:106,rating:3,body:"Boards do not sync between two windows yet.",d:"2026-09-04",helpful:1,reply:null});
+APPS[3].reviews.push({user:"Sofia Ruiz",uid:103,rating:2,body:"Chapters do not resume after a restart.",d:"2026-09-09",helpful:3,reply:{t:"Fixed in 1.1.0 — bookmarks now persist.",d:"2026-09-10"}});
+
+// 账号
+const ROLES={
+  guest:{name:"",email:"",admin:false,id:0},
+  user:{name:"Mia Chen",email:"mia@chen.me",admin:false,id:3},
+  dev:{name:"Ana Reyes",email:"ana@reyes.dev",admin:false,id:2},
+  admin:{name:"longyun yang",email:"yanglongyun1995@gmail.com",admin:true,id:1},
+};
+// 工作区里的应用(发布视图)。每个角色都看见同一个工作区,但归属不同
+const WORKSPACE=[
+  {id:"pixelnote",name:"PixelNote",icon:"🖍️",version:"0.4.0",src:true,modified:false,owner:2,
+    submissions:[{v:"0.4.0",status:"pending",d:"2026-09-11 09:12",notes:"Undo history; pen pressure fixes."},{v:"0.3.1",status:"approved",d:"2026-09-09",notes:"Pen pressure on trackpads."},{v:"0.3.0",status:"approved",d:"2026-08-30",notes:"Board sharing between windows."},{v:"0.2.9",status:"rejected",d:"2026-08-28",notes:"Board sharing.",reason:"The description must say what the app does; the current one is a placeholder."}]},
+  {id:"kanban-lite",name:"Kanban Lite",icon:"🗃️",version:"1.0.2",src:true,modified:true,owner:99,submissions:[]},
+  {id:"timer",name:"Timer",icon:"⏱️",version:"0.1.0",src:false,modified:false,owner:0,submissions:[]},
+  {id:"ramify",name:"Ramify",icon:"🌿",version:"1.2.0",src:true,modified:false,owner:1,submissions:[{v:"1.2.0",status:"approved",d:"2026-09-08",notes:"Thumbnails render inside the branch tree."}]},
+];
+const QUEUE=[
+  {id:"pixelnote",name:"PixelNote",icon:"🖍️",v:"0.4.0",replaces:"0.3.1",author:"Ana Reyes",email:"ana@reyes.dev",kb:41,src:true,age:"2 h",notes:"Undo history; pen pressure fixes.",
+    checks:[["app.json has all seven fields","ok"],["Ships src/ (package.json present)","ok"],["server.js present, 3 KB","ok"],["Package 41 KB (limit 50 MB)","ok"],["Description changed since 0.3.1","warn","review the new copy"]],
+    tree:`app.json        APP.md          server.js\npackage.json    build.mjs\npublic/         index.html  app.js (37 KB)  app.css\nsrc/            main.tsx  index.tsx  board.tsx  style.css`,
+    diff:`  "name": "PixelNote",\n- "description": "Sticky notes you can draw on.",\n+ "description": "Sticky notes you can draw on, with undo and pen pressure.",\n- "version": "0.3.1",\n+ "version": "0.4.0",`},
+  {id:"deckly",name:"Deckly",icon:"🃏",v:"1.0.0",replaces:"",author:"Tom Walsh",email:"tom@walsh.me",kb:512,src:true,age:"1 d",notes:"First release: flashcards with spaced repetition.",
+    checks:[["app.json has all seven fields","ok"],["Ships src/","ok"],["server.js present, 9 KB","ok"],["Package 512 KB","ok"],["Uses env.PROC (runs commands)","warn","confirm the README explains why"]],
+    tree:`app.json        APP.md          server.js\npackage.json    build.mjs\npublic/         index.html  app.js (480 KB)  app.css\nsrc/            main.tsx  index.tsx  deck.ts  srs.ts  style.css`,
+    diff:`+ "id": "deckly",\n+ "name": "Deckly",\n+ "icon": "🃏",\n+ "description": "Flashcards with spaced repetition; import from CSV.",\n+ "version": "1.0.0",\n+ "author": "Tom Walsh",`},
+  {id:"minimap","name":"Minimap",icon:"🗺️",v:"0.2.0",replaces:"0.1.0",author:"Marco B.",email:"marco@b.io",kb:3800,src:false,age:"3 d",notes:"Offline tiles.",
+    checks:[["app.json has all seven fields","ok"],["No src/ but package.json present","bad","must ship src/"],["server.js present","ok"],["Package 3.8 MB","ok"]],
+    tree:`app.json        APP.md          server.js\npackage.json\npublic/         index.html  app.js (3.6 MB)  tiles/`,
+    diff:`- "version": "0.1.0",\n+ "version": "0.2.0",`},
+];
+
+// ───────────────────────── 状态 ─────────────────────────
+const S={role:"user",route:{name:"discover"},stack:[],installed:new Set(["assistant","files","weather","tasks","ramify","reader","pool"]),localVer:{reader:"1.0.0",tasks:"1.0.0"},cat:"All",q:"",progress:{},helpful:new Set()};
+const me=()=>ROLES[S.role];
+const $=(s,r=document)=>r.querySelector(s);const h=(s)=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const stars=(v,cls="")=>{let o=`<span class="stars ${cls}">`;for(let i=1;i<=5;i++){o+=`<i class="${i<=Math.floor(v)?"on":(i-v<1&&i-v>0?"half":"")}">★</i>`}return o+"</span>"};
+const avg=a=>a.reviews.length?a.reviews.reduce((s,r)=>s+r.rating,0)/a.reviews.length:0;
+const kb=n=>n>=1024?`${(n/1024).toFixed(1)} MB`:`${n} KB`;
+const byId=id=>APPS.find(a=>a.id===id);
+const state=a=>!S.installed.has(a.id)?"absent":(S.localVer[a.id]&&S.localVer[a.id]!==a.version?"update":"installed");
+const updates=()=>APPS.filter(a=>state(a)==="update");
+const ownerOf=a=>{const w=WORKSPACE.find(x=>x.id===a.id);return w?w.owner:(a.author==="Sider"?1:-1)};
+const canManage=a=>me().admin||ownerOf(a)===me().id;
+
+function toast(t,cls="",action){const el=document.createElement("div");el.className="toast "+cls;el.innerHTML=h(t)+(action?` <button class="link">${h(action.label)}</button>`:"");if(action)$("button",el).onclick=()=>{action.fn();el.remove()};$("#toasts").append(el);setTimeout(()=>el.remove(),4200)}
+function sheet(html,wide){const sc=$("#scrim");sc.innerHTML=`<form class="sheet${wide?" wide":""}">${html}</form>`;sc.classList.add("open");const f=$("form",sc);f.onsubmit=e=>e.preventDefault();sc.onmousedown=e=>{if(e.target===sc)closeSheet()};setTimeout(()=>{const t=$("textarea,input[type=text]",f);t&&t.focus()},30);return f}
+function closeSheet(){$("#scrim").classList.remove("open");$("#scrim").innerHTML=""}
+/** 通用问询:标题 + 说明 + 可选文本(必填与否)→ Promise<string|null> */
+function ask({title,message,placeholder,required,confirm,danger,initial="",templates}){return new Promise(res=>{
+  const f=sheet(`<h4>${h(title)}</h4>${message?`<p>${h(message)}</p>`:""}${placeholder!==undefined?`<div class="f">${templates?`<div class="templ">${templates.map(t=>`<button type="button">${h(t)}</button>`).join("")}</div>`:""}<textarea rows="4" placeholder="${h(placeholder)}">${h(initial)}</textarea></div>`:""}
+    <div class="actions"><button type="button" class="btn" data-x>Cancel</button><button type="submit" class="btn ${danger?"danger":"pri"}" ${required?"disabled":""}>${h(confirm)}</button></div>`);
+  const ta=$("textarea",f),ok=$("[type=submit]",f);
+  if(ta){ta.oninput=()=>ok.disabled=required&&!ta.value.trim();f.querySelectorAll(".templ button").forEach(b=>b.onclick=()=>{ta.value=b.textContent;ta.dispatchEvent(new Event("input"));ta.focus()})}
+  $("[data-x]",f).onclick=()=>{closeSheet();res(null)};f.onsubmit=e=>{e.preventDefault();if(ok.disabled)return;closeSheet();res(ta?ta.value.trim():"")};
+})}
+
+// ───────────────────────── 导航 ─────────────────────────
+function go(route,push=true){if(push&&S.route)S.stack.push(S.route);S.route=route;render();$("#scroll").scrollTop=0}
+function back(){const r=S.stack.pop();if(r){S.route=r;render()}}
+function render(){renderNav();renderFoot();renderGate();const r=S.route;const V=$("#view"),T=$("#top");
+  const top=(title,sub="",canBack=false)=>T.innerHTML=`${canBack?`<button class="back" onclick="back()"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>`:""}<h1>${title}</h1><span class="sub">${sub}</span>`;
+  ({discover(){top("Discover");V.innerHTML=Discover()},search(){top("Search",`${S.q?`“${h(S.q)}”`:""}`);V.innerHTML=Search()},app(){const a=byId(r.id);top(h(a.name),h(a.author),true);V.innerHTML=AppPage(a)},
+    library(){top("Library",`${S.installed.size} apps`);V.innerHTML=Library()},updates(){top("Updates",`${updates().length} available`);V.innerHTML=Library(true)},publish(){top("Your apps","apps/ in this workspace");V.innerHTML=Publish()},
+    review(){top("Review",`${QUEUE.length} waiting`);V.innerHTML=Review()},category(){top(r.cat);S.cat=r.cat;V.innerHTML=Discover(true)}})[r.name]();
+  bind(V)}
+function renderNav(){const m=me();const u=updates().length;const on=n=>S.route.name===n?"on":"";
+  $("#nav").innerHTML=`<div class="grp">Store</div>
+    <a class="${on("discover")}" data-go="discover"><span class="ic">✦</span>Discover</a>
+    <a class="${on("category")}" data-go="category" data-cat="Tools"><span class="ic">▦</span>Categories</a>
+    <div class="grp">This desktop</div>
+    <a class="${on("library")}" data-go="library"><span class="ic">▤</span>Library</a>
+    <a class="${on("updates")}" data-go="updates"><span class="ic">⟳</span>Updates${u?`<span class="n">${u}</span>`:""}</a>
+    <a class="${on("publish")}" data-go="publish"><span class="ic">↑</span>Your apps${WORKSPACE.some(w=>w.owner===m.id&&w.submissions.some(s=>s.status==="rejected"&&!s.seen))?`<span class="n warn">!</span>`:""}</a>
+    ${m.admin?`<div class="grp">Wandesk</div><a class="${on("review")}" data-go="review"><span class="ic">✓</span>Review${QUEUE.length?`<span class="n warn">${QUEUE.length}</span>`:""}</a>`:""}`;
+  $("#nav").querySelectorAll("a").forEach(a=>a.onclick=()=>{S.stack=[];go(a.dataset.go==="category"?{name:"category",cat:a.dataset.cat}:{name:a.dataset.go},false)})}
+function renderFoot(){const m=me();$("#foot").innerHTML=m.id?`<span class="av">${h(m.name.split(" ").map(x=>x[0]).join("").toUpperCase())}</span><span class="who"><b>${h(m.name)}</b><span>${m.admin?"Admin · ":""}${h(m.email)}</span></span>`:`<span class="av">?</span><span class="who"><b>Not signed in</b><span>Settings → Wandesk account</span></span>`}
+function renderGate(){const g=$("#gate");if(me().id){g.hidden=true;return}g.hidden=false;g.innerHTML=`<div class="box"><div class="ic">🛍️</div><h2>Sign in to use the Store</h2><p>Browse and install apps, rate and review them, and publish your own. Connect your Wandesk account in Settings; this window continues on its own once you are signed in.</p>
+  <button class="btn pri" onclick="toast('Settings opened in the shell (prototype)')">Open Settings</button>
+  <div class="state"><i></i>Waiting for the account…</div>
+  <div class="preview">${APPS.slice(0,8).map(a=>`<div class="card"><span class="ic">${a.icon}</span><span class="m"><span class="n">${h(a.name)}</span></span></div>`).join("")}</div></div>`}
+
+// ───────────────────────── 视图 ─────────────────────────
+const cardHTML=(a,no)=>`<div class="card" data-app="${a.id}">${no?`<span class="no">${no}</span>`:""}<span class="ic">${a.icon}</span><span class="m"><span class="n">${h(a.name)}</span><span class="d">${h(a.desc)}</span><span class="r">${a.reviews.length?`${stars(avg(a))} ${avg(a).toFixed(1)} · `:""}${a.installs} installs${a.src?"":" · no src"}</span></span>${getBtn(a,"sm pill")}</div>`;
+function getBtn(a,cls=""){const st=state(a);const p=S.progress[a.id];if(p!==undefined)return `<button class="btn get busy ${cls}" style="--p:${p}%" data-p="${p<100?p+"%":"…"}" data-get="${a.id}">Install</button>`;
+  if(st==="installed")return `<button class="btn get ${cls}" data-open="${a.id}">Open</button>`;
+  if(st==="update")return `<button class="btn get pri ${cls}" data-get="${a.id}">Update</button>`;
+  if(!a.listed)return `<button class="btn get ${cls}" disabled>Unavailable</button>`;
+  return `<button class="btn get pri ${cls}" data-get="${a.id}">Install</button>`}
+function Discover(catOnly){const list=APPS.filter(a=>a.listed&&(S.cat==="All"||a.cat===S.cat));
+  if(catOnly)return `<div class="page"><div class="chips">${CATS.map(c=>`<button class="chip ${S.cat===c?"on":""}" data-cat="${c}">${c}</button>`).join("")}</div><h2 class="sec">${S.cat==="All"?"All apps":S.cat} <small>${list.length}</small></h2><div class="grid">${list.map(a=>cardHTML(a)).join("")}</div></div>`;
+  const hero=byId("ramify"),fresh=[...APPS].filter(a=>a.listed).sort((x,y)=>y.versions[0].d.localeCompare(x.versions[0].d)).slice(0,6),top=[...APPS].filter(a=>a.listed&&a.reviews.length>1).sort((x,y)=>avg(y)-avg(x)).slice(0,6),pop=[...APPS].filter(a=>a.listed).sort((x,y)=>y.installs-x.installs).slice(0,9);
+  return `<div class="page">
+    <div class="hero" data-icon="${hero.icon}" data-app="${hero.id}"><div><div class="k">Featured · Creativity</div><h3>${h(hero.name)}</h3><p>${h(hero.desc)}</p><div class="row">${getBtn(hero,"pill")}<span class="meta">${stars(avg(hero))} ${avg(hero).toFixed(1)} · ${hero.installs} installs · ${kb(hero.kb)} · ships source</span></div></div></div>
+    <div class="chips">${CATS.map(c=>`<button class="chip ${S.cat===c?"on":""}" data-cat="${c}">${c}</button>`).join("")}</div>
+    ${S.cat!=="All"?`<h2 class="sec">${S.cat} <small>${list.length}</small></h2><div class="grid">${list.map(a=>cardHTML(a)).join("")}</div>`:`
+    <h2 class="sec">New and updated <small>this week</small><button class="more" data-go="category" data-cat="All">See all</button></h2><div class="rail">${fresh.map(a=>cardHTML(a)).join("")}</div>
+    <h2 class="sec">Top rated</h2><div class="rank">${top.map((a,i)=>cardHTML(a,i+1)).join("")}</div>
+    <h2 class="sec">Most installed</h2><div class="grid">${pop.map(a=>cardHTML(a)).join("")}</div>`}
+  </div>`}
+function Search(){const q=S.q.trim().toLowerCase();const list=APPS.filter(a=>a.listed&&(a.name+a.desc+a.author+a.id+a.cat).toLowerCase().includes(q));
+  return `<div class="page">${!q?`<div class="empty"><b>Search the catalog</b>Name, description, publisher or category.</div>`:list.length?`<h2 class="sec">Results <small>${list.length}</small></h2><div class="grid">${list.map(a=>cardHTML(a)).join("")}</div>`:`<div class="empty"><b>No apps match “${h(S.q)}”</b>Try a shorter word, or browse a category.</div>`}</div>`}
+function AppPage(a){const st=state(a),mine=a.reviews.find(r=>r.me),manage=canManage(a),isOwner=ownerOf(a)===me().id;const hist=[5,4,3,2,1].map(n=>[n,a.reviews.filter(r=>r.rating===n).length]);const latest=a.versions.find(v=>v.status==="approved");
+  const others=APPS.filter(x=>x.author===a.author&&x.id!==a.id&&x.listed).slice(0,3);
+  return `<div class="page">
+    <div class="ahead"><span class="ic">${a.icon}</span><div class="t"><h3>${h(a.name)}</h3><div class="by">${h(a.desc)}</div><div class="by" style="margin-top:4px">by <b data-q="${h(a.author)}">${h(a.author)}</b> · ${a.cat}</div>
+      <div class="act">${getBtn(a,"pill")}${st!=="absent"?`<button class="btn pill" data-remove="${a.id}">Remove</button>`:""}${st==="update"?`<span class="note">${S.localVer[a.id]} installed · ${a.version} available</span>`:st==="installed"?`<span class="note">Installed · ${a.version}</span>`:`<span class="note">${kb(a.kb)} · ${a.src?"ships source":"single file"}</span>`}</div></div></div>
+    ${!a.listed?`<div class="banner bad">Taken down${a.delist.by==="admin"?" by Wandesk":" by the publisher"}: ${h(a.delist.note)}<span class="sp"></span>${manage&&(me().admin||a.delist.by!=="admin")?`<button class="btn sm" data-relist="${a.id}">Relist</button>`:""}</div>`:""}
+    ${manage?`<div class="manage"><b>${isOwner?"You publish this app":"Admin"}</b><span>${a.versions.some(v=>v.status==="pending")?"A version is under review.":"Nothing under review."}</span><span class="sp"></span>${a.listed?`<button class="btn sm" data-delist="${a.id}">Take down</button>`:""}<button class="btn sm" data-go="publish">Manage in Your apps</button></div>`:""}
+    <div class="facts">
+      <div class="fact"><div class="k">Rating</div><div class="v">${a.reviews.length?`${avg(a).toFixed(1)}${stars(avg(a))}`:"—<small>no ratings</small>"}</div></div>
+      <div class="fact"><div class="k">Reviews</div><div class="v">${a.reviews.length}</div></div>
+      <div class="fact"><div class="k">Installs</div><div class="v">${a.installs}</div></div>
+      <div class="fact"><div class="k">Version</div><div class="v">${a.version}<small>${latest.d}</small></div></div>
+      <div class="fact"><div class="k">Size</div><div class="v">${kb(a.kb)}</div></div>
+      <div class="fact"><div class="k">Source</div><div class="v">${a.src?"Included":"—"}<small>${a.src?"edit after install":"public/ only"}</small></div></div>
+    </div>
+    <div class="shots">${["Main window","Detail","Settings"].map((c,i)=>`<div class="shot"><div class="bar"><i></i><i></i><i></i></div><div class="cv"><div></div><div></div><div></div><div></div></div><span class="cap">${c}</span></div>`).join("")}</div>
+    <h2 class="sec">What's new <small>${latest.v} · ${latest.d}</small><button class="more" data-toggle="vers">Version history</button></h2>
+    <div class="whatsnew"><div><div class="v">${latest.v}</div><div class="d">${latest.d}</div></div><p>${h(latest.n)}</p></div>
+    <div class="vers" id="vers" hidden>${a.versions.map(v=>`<div class="ver"><b>${v.v}</b><span class="d">${v.d}</span><span class="n">${h(v.n)}</span>${manage?`<span class="pill ${v.status==="approved"?"ok":v.status==="pending"?"warn":v.status==="rejected"?"bad":"mute"}">${v.status}</span>`:""}${manage&&v.reason?`<span class="reason">Reason: ${h(v.reason)}</span>`:""}</div>`).join("")}</div>
+    <h2 class="sec">About</h2><div class="two"><div class="readme">${md(a.readme)}</div>
+      <div class="info"><div><div class="k">Publisher</div><div class="v">${h(a.author)}</div></div><div><div class="k">Category</div><div class="v">${a.cat}</div></div><div><div class="k">Identifier</div><div class="v"><code>${a.id}</code></div></div><div><div class="k">Installs into</div><div class="v"><code>apps/${a.id}/</code></div></div><div><div class="k">Bindings</div><div class="v">DB · AI · FS · PROC · UI</div></div><div><div class="k">Updated</div><div class="v">${latest.d}</div></div></div></div>
+    <h2 class="sec">Ratings and reviews <small>${a.reviews.length?`${avg(a).toFixed(1)} out of 5`:""}</small>${!isOwner&&!mine?`<button class="more" data-compose>Write a review</button>`:""}</h2>
+    ${a.reviews.length?`<div class="rsum"><div class="big"><b>${avg(a).toFixed(1)}</b>${stars(avg(a))}<span>${a.reviews.length} ${a.reviews.length===1?"rating":"ratings"}</span></div><div class="bars">${hist.map(([n,c])=>`<div class="bar"><span>${n}</span><i><b style="width:${c/a.reviews.length*100}%"></b></i><span>${c}</span></div>`).join("")}</div><div>${isOwner?`<span class="hint" style="margin:0">Publishers cannot rate their own apps.</span>`:mine?`<button class="btn" data-compose>Edit your review</button>`:`<button class="btn pri" data-compose>Write a review</button>`}</div></div>`:`<div class="empty" style="padding:24px"><b>No reviews yet</b>${isOwner?"Publishers cannot rate their own apps.":"Be the first to rate this app."}</div>`}
+    <div class="compose" id="compose" data-for="${a.id}"><div class="row"><b>${mine?"Edit your review":"Rate this app"}</b><span class="pick" id="pick">${[1,2,3,4,5].map(i=>`<i data-v="${i}" class="${mine&&i<=mine.rating?"on":""}">★</i>`).join("")}</span><span class="hint" style="margin:0" id="picklbl">${mine?["","Poor","Fair","Good","Very good","Excellent"][mine.rating]:"Select a rating"}</span></div>
+      <textarea rows="3" placeholder="What works well, what does not (optional)">${mine?h(mine.body):""}</textarea><div class="foot"><span>Shown with your account name.</span><span>${mine?`<button class="btn" data-delrev>Delete review</button> `:""}<button class="btn" data-cancel>Cancel</button> <button class="btn pri" data-post ${mine?"":"disabled"}>${mine?"Update review":"Post review"}</button></span></div></div>
+    <div class="reviews">${a.reviews.map(r=>`<div class="review ${r.me?"mine":""}"><div class="h"><span class="av">${h(r.user.split(" ").map(x=>x[0]).join(""))}</span><b>${r.me?"You":h(r.user)}</b>${stars(r.rating)}<span class="d">${r.d}</span></div><p>${h(r.body)}</p>
+      ${r.reply?`<div class="reply"><b>${h(a.author)} · publisher</b><span class="d">${r.reply.d}</span><p>${h(r.reply.t)}</p></div>`:""}
+      <div class="helpful"><span>${r.helpful+(S.helpful.has(a.id+r.uid)?1:0)} found this helpful</span>${!r.me?`<button class="${S.helpful.has(a.id+r.uid)?"on":""}" data-helpful="${r.uid}">Helpful</button>`:""}
+        <span class="tools" style="margin-left:auto">${r.me?`<button class="link" data-compose>Edit</button>`:""}${(r.me||me().admin)?`<button class="link danger" data-delrev="${r.uid}">Delete</button>`:""}${isOwner?`<button class="link" data-reply="${r.uid}">${r.reply?"Edit reply":"Reply"}</button>`:""}</span></div></div>`).join("")}</div>
+    ${others.length?`<h2 class="sec">More by ${h(a.author)}</h2><div class="grid">${others.map(x=>cardHTML(x)).join("")}</div>`:""}
+  </div>`}
+function md(t){return t.split("\n").map(l=>l.startsWith("### ")?`<h4>${h(l.slice(4))}</h4>`:l.startsWith("## ")?`<h4>${h(l.slice(3))}</h4>`:l.startsWith("- ")?`<li>${inl(l.slice(2))}</li>`:l.trim()?`<p>${inl(l)}</p>`:"").join("").replace(/(<li>.*?<\/li>)+/g,m=>`<ul>${m}</ul>`)}
+function inl(s){return h(s).replace(/`([^`]+)`/g,"<code>$1</code>")}
+function Library(onlyUpdates){const ups=updates();const list=APPS.filter(a=>S.installed.has(a.id));
+  return `<div class="page narrow">${ups.length?`<h2 class="sec">Updates <small>${ups.length}</small><button class="more" data-updateall>Update all</button></h2><div class="rows">${ups.map(a=>`<div class="row-app"><span class="ic">${a.icon}</span><span class="m"><span class="n" data-app="${a.id}">${h(a.name)}</span><span class="d">${S.localVer[a.id]} → ${a.version} · ${h(a.versions[0].n)}</span></span><span class="acts">${getBtn(a,"sm pill")}</span></div>`).join("")}</div>`:onlyUpdates?`<div class="empty"><b>Everything is up to date</b>Updates appear here when a publisher ships a newer version.</div>`:""}
+  ${onlyUpdates?"":`<h2 class="sec">Installed <small>${list.length}</small></h2><div class="rows">${list.map(a=>`<div class="row-app"><span class="ic">${a.icon}</span><span class="m"><span class="n" data-app="${a.id}">${h(a.name)} <code>${a.id}</code></span><span class="d"><span>${S.localVer[a.id]||a.version}</span><span>${h(a.author)}</span>${!a.listed?`<span class="pill bad">Taken down · keeps working</span>`:""}</span></span><span class="acts">${getBtn(a,"sm")}<button class="btn sm" data-remove="${a.id}">Remove</button></span></div>`).join("")}</div>`}</div>`}
+function Publish(){const m=me();
+  return `<div class="page narrow"><p class="hint">Every app under <code>apps/</code>. Publishing packs the directory (without <code>node_modules</code> and <code>data.db</code>) and submits one version for review; the version on sale stays available meanwhile. Apps with <code>package.json</code> must include <code>src/</code>.</p>
+  <div class="rows">${WORKSPACE.map(w=>{const own=w.owner===m.id,taken=w.owner!==0&&!own,a=byId(w.id),pend=w.submissions.find(s=>s.status==="pending");
+    return `<div class="row-app tall"><div class="line"><span class="ic">${w.icon}</span><span class="m"><span class="n">${h(w.name)} <code>${w.id}</code></span><span class="d"><span>v${w.version}</span><span>${w.src?"ships src/":"no src/"}</span>${w.modified?`<span class="pill warn">Modified locally</span>`:""}${a&&own?(a.listed?`<span class="pill ok">On sale · ${a.version}</span>`:`<span class="pill bad">Taken down</span>`):""}${taken?`<span class="pill bad">Id owned by another account</span>`:""}${!a&&own&&pend?`<span class="pill warn">First version under review</span>`:""}</span></span>
+      <span class="acts">${a&&own?(a.listed?`<button class="btn sm" data-delist="${a.id}">Take down</button>`:(a.delist.by!=="admin"?`<button class="btn sm" data-relist="${a.id}">Relist</button>`:"")):""}<button class="btn sm pri" data-publish="${w.id}" ${taken||pend?"disabled":""}>${pend?"Under review":a?"Publish update":"Publish"}</button></span></div>
+      ${a&&own&&!a.listed?`<div class="banner bad" style="margin:10px 0 0 56px">Taken down${a.delist.by==="admin"?" by Wandesk":""}: ${h(a.delist.note)}</div>`:""}
+      ${w.submissions.length?`<div class="timeline">${w.submissions.map(s=>`<div class="tl ${s.status==="approved"?"ok":s.status==="rejected"?"bad":s.status==="pending"?"warn":""}"><b>${s.v}</b><span class="pill ${s.status==="approved"?"ok":s.status==="rejected"?"bad":s.status==="pending"?"warn":"mute"}">${{approved:"On sale",pending:"Under review",rejected:"Rejected",withdrawn:"Withdrawn"}[s.status]}</span><span class="d">${s.d}</span><span>${h(s.notes)}</span>${s.status==="pending"?`<button class="link danger" data-withdraw="${w.id}|${s.v}">Withdraw</button>`:""}${s.reason?`<span class="reason">Reason: ${h(s.reason)} — bump the version and publish again.</span>`:""}</div>`).join("")}</div>`:""}
+    </div>`}).join("")}</div></div>`}
+function Review(){const q=QUEUE[S.qi||0];if(!q)return `<div class="page"><div class="empty"><b>Nothing is waiting</b>Submissions appear here as they arrive.</div></div>`;const tab=S.qtab||"checks";
+  return `<div class="page"><div class="queue"><div class="qlist">${QUEUE.map((x,i)=>`<div class="q ${i===(S.qi||0)?"on":""}" data-qi="${i}"><span class="ic">${x.icon}</span><span><div class="n">${h(x.name)} ${x.v}</div><div class="d">${h(x.author)} · ${x.replaces?`replaces ${x.replaces}`:"first version"}</div></span><span class="age">${x.age}</span></div>`).join("")}</div>
+    <div class="qdetail"><div class="h"><span class="ic">${q.icon}</span><div><h3>${h(q.name)} <span style="font:600 15px var(--mono);color:var(--t3)">${q.v}</span></h3><div class="by">${h(q.author)} · ${h(q.email)} · ${kb(q.kb)} · ${q.src?"ships src/":"no src/"} · submitted ${q.age} ago</div></div><div class="acts"><button class="btn" data-reject>Reject…</button><button class="btn pri" data-approve ${q.checks.some(c=>c[1]==="bad")?"disabled title='A blocking check failed'":""}>Approve</button></div></div>
+      <p class="hint" style="margin-top:12px"><b>Release notes:</b> ${h(q.notes)}</p>
+      <div class="tabs">${[["checks","Checks"],["diff","Manifest diff"],["tree","Package"],["readme","README"]].map(([k,l])=>`<button class="tab ${tab===k?"on":""}" data-qtab="${k}">${l}</button>`).join("")}</div>
+      ${tab==="checks"?`<div class="checks">${q.checks.map(([t,s,n])=>`<div class="check"><i class="${s}">${s==="ok"?"✓":"!"}</i>${h(t)}${n?`<span>${h(n)}</span>`:""}</div>`).join("")}</div>`:tab==="diff"?`<div class="diff">${q.diff.split("\n").map(l=>l.startsWith("+")?`<span class="add">${h(l)}</span>`:l.startsWith("-")?`<span class="del">${h(l)}</span>`:h(l)+"\n").join("")}</div>`:tab==="tree"?`<div class="tree">${h(q.tree)}</div>`:`<div class="readme">${md(`## ${q.name}\n\n${q.notes}\n\n### Data\nOne table in the app's database.`)}</div>`}
+    </div></div></div>`}
+
+// ───────────────────────── 交互 ─────────────────────────
+function bind(V){
+  V.querySelectorAll("[data-app]").forEach(el=>el.onclick=e=>{if(e.target.closest("button"))return;go({name:"app",id:el.dataset.app})});
+  V.querySelectorAll("[data-q]").forEach(el=>el.onclick=()=>{S.q=el.dataset.q;$("#q").value=S.q;go({name:"search"})});
+  V.querySelectorAll("[data-cat]").forEach(el=>el.onclick=()=>{S.cat=el.dataset.cat;render()});
+  V.querySelectorAll("[data-go]").forEach(el=>el.onclick=()=>go(el.dataset.go==="category"?{name:"category",cat:el.dataset.cat}:{name:el.dataset.go}));
+  V.querySelectorAll("[data-get]").forEach(el=>el.onclick=e=>{e.stopPropagation();install(byId(el.dataset.get))});
+  V.querySelectorAll("[data-open]").forEach(el=>el.onclick=e=>{e.stopPropagation();toast(`${byId(el.dataset.open).name} opened`)});
+  V.querySelectorAll("[data-remove]").forEach(el=>el.onclick=async e=>{e.stopPropagation();const a=byId(el.dataset.remove);if(await ask({title:`Remove ${a.name} from this desktop?`,message:"The directory is deleted. The app's data stays in the workspace store and returns if the app is installed again.",confirm:"Remove",danger:true})===null)return;S.installed.delete(a.id);delete S.localVer[a.id];render();toast(`${a.name} removed`,"",{label:"Undo",fn(){S.installed.add(a.id);render()}})});
+  V.querySelectorAll("[data-updateall]").forEach(el=>el.onclick=()=>updates().forEach(a=>install(a)));
+  V.querySelectorAll("[data-toggle]").forEach(el=>el.onclick=()=>{const t=$("#"+el.dataset.toggle);t.hidden=!t.hidden});
+  // 评论
+  V.querySelectorAll("[data-compose]").forEach(el=>el.onclick=()=>{$("#compose").classList.add("open");$("#compose").scrollIntoView({block:"center"})});
+  const comp=$("#compose",V);if(comp){const a=byId(comp.dataset.for);let rating=(a.reviews.find(r=>r.me)||{}).rating||0;const lbl=["","Poor","Fair","Good","Very good","Excellent"];
+    const paint=v=>comp.querySelectorAll("#pick i").forEach(i=>i.classList.toggle("on",+i.dataset.v<=v));
+    comp.querySelectorAll("#pick i").forEach(i=>{i.onmouseenter=()=>{paint(+i.dataset.v);$("#picklbl").textContent=lbl[+i.dataset.v]};i.onclick=()=>{rating=+i.dataset.v;$("[data-post]",comp).disabled=false}});
+    $("#pick",comp).onmouseleave=()=>{paint(rating);$("#picklbl").textContent=rating?lbl[rating]:"Select a rating"};
+    $("[data-cancel]",comp).onclick=()=>comp.classList.remove("open");
+    $("[data-post]",comp).onclick=()=>{const body=$("textarea",comp).value.trim();let r=a.reviews.find(x=>x.me);if(r){r.rating=rating;r.body=body;r.d="2026-09-11"}else a.reviews.unshift({user:me().name,uid:me().id,rating,body,d:"2026-09-11",helpful:0,reply:null,me:true});render();toast("Your review is posted","ok")};
+    const del=$("[data-delrev]",comp);if(del)del.onclick=async()=>{if(await ask({title:"Delete your review?",confirm:"Delete",danger:true})===null)return;a.reviews=a.reviews.filter(x=>!x.me);render();toast("Review deleted")}}
+  V.querySelectorAll(".review [data-delrev]").forEach(el=>el.onclick=async()=>{const a=byId(S.route.id);const r=a.reviews.find(x=>x.uid==el.dataset.delrev);if(await ask({title:r.me?"Delete your review?":`Delete the review by ${r.user}?`,message:r.me?undefined:"Admin action. The author is not notified.",confirm:"Delete",danger:true})===null)return;a.reviews=a.reviews.filter(x=>x!==r);render();toast("Review deleted")});
+  V.querySelectorAll("[data-reply]").forEach(el=>el.onclick=async()=>{const a=byId(S.route.id);const r=a.reviews.find(x=>x.uid==el.dataset.reply);const t=await ask({title:`Reply to ${r.user}`,message:`“${r.body}”`,placeholder:"Your reply as the publisher",initial:r.reply?r.reply.t:"",confirm:r.reply?"Update reply":"Reply"});if(t===null)return;r.reply=t?{t,d:"2026-09-11"}:null;render();toast(t?"Reply posted":"Reply removed")});
+  V.querySelectorAll("[data-helpful]").forEach(el=>el.onclick=()=>{const k=S.route.id+el.dataset.helpful;S.helpful.has(k)?S.helpful.delete(k):S.helpful.add(k);render()});
+  // 上下架
+  V.querySelectorAll("[data-delist]").forEach(el=>el.onclick=async()=>{const a=byId(el.dataset.delist);const note=await ask({title:`Take ${a.name} down?`,message:"The app leaves the catalog and can no longer be installed. Desktops that already have it keep it.",placeholder:"Reason (shown to the publisher)",required:true,confirm:"Take down",danger:true,templates:me().admin?["Violates the content policy","Broken on the current Wandesk","Publisher request"]:["Maintenance","Superseded by another app"]});if(note===null)return;a.listed=false;a.delist={by:me().admin&&ownerOf(a)!==me().id?"admin":"owner",note};render();toast(`${a.name} taken down`)});
+  V.querySelectorAll("[data-relist]").forEach(el=>el.onclick=async()=>{const a=byId(el.dataset.relist);if(await ask({title:`Put ${a.name} back on sale?`,message:"The app returns to the catalog immediately.",confirm:"Relist"})===null)return;a.listed=true;a.delist=null;render();toast(`${a.name} is back on sale`,"ok")});
+  // 发布
+  V.querySelectorAll("[data-publish]").forEach(el=>el.onclick=()=>publishFlow(WORKSPACE.find(w=>w.id===el.dataset.publish)));
+  V.querySelectorAll("[data-withdraw]").forEach(el=>el.onclick=async()=>{const [id,v]=el.dataset.withdraw.split("|");const w=WORKSPACE.find(x=>x.id===id);if(await ask({title:`Withdraw ${w.name} ${v} from review?`,message:"A withdrawn version cannot be resubmitted; publish again under a higher version number.",confirm:"Withdraw",danger:true})===null)return;w.submissions.find(s=>s.v===v).status="withdrawn";const qi=QUEUE.findIndex(q=>q.id===id&&q.v===v);if(qi>=0)QUEUE.splice(qi,1);render();toast(`${w.name} ${v} withdrawn`)});
+  // 审核
+  V.querySelectorAll("[data-qi]").forEach(el=>el.onclick=()=>{S.qi=+el.dataset.qi;S.qtab="checks";render()});
+  V.querySelectorAll("[data-qtab]").forEach(el=>el.onclick=()=>{S.qtab=el.dataset.qtab;render()});
+  const ap=$("[data-approve]",V);if(ap)ap.onclick=async()=>{const q=QUEUE[S.qi||0];if(await ask({title:`Approve ${q.name} ${q.v}?`,message:q.replaces?`It replaces ${q.replaces} in the catalog and its manifest becomes the app's.`:"It becomes the first version on sale.",confirm:"Approve"})===null)return;decide(q,"approved")};
+  const rj=$("[data-reject]",V);if(rj)rj.onclick=async()=>{const q=QUEUE[S.qi||0];const note=await ask({title:`Reject ${q.name} ${q.v}`,placeholder:"Reason (shown to the publisher)",required:true,confirm:"Reject",danger:true,templates:["The description must say what the app does.","Apps with package.json must ship src/.","The app does not open on the current Wandesk.","The README is missing."]});if(note===null)return;decide(q,"rejected",note)};
+}
+function install(a){if(S.progress[a.id]!==undefined)return;const was=state(a);const w=WORKSPACE.find(x=>x.id===a.id);
+  const start=()=>{S.progress[a.id]=0;render();const t=setInterval(()=>{S.progress[a.id]=Math.min(100,S.progress[a.id]+Math.round(12+Math.random()*22));document.querySelectorAll(`[data-get="${a.id}"]`).forEach(b=>{b.style.setProperty("--p",S.progress[a.id]+"%");b.dataset.p=S.progress[a.id]<100?S.progress[a.id]+"%":"…"});if(S.progress[a.id]>=100){clearInterval(t);setTimeout(()=>{delete S.progress[a.id];S.installed.add(a.id);delete S.localVer[a.id];if(was==="absent")a.installs++;render();toast(`${a.name} ${was==="update"?"updated to":"installed,"} ${a.version}`,"ok",{label:"Open",fn(){toast(`${a.name} opened`)}})},350)}},160)};
+  if(was==="update"&&w&&w.modified){ask({title:`Replace your changes to ${a.name}?`,message:`This app was modified in this workspace. Updating replaces it with ${a.version}; the app's data is kept.`,confirm:"Update anyway",danger:true}).then(r=>{if(r!==null)start()});return}
+  start()}
+function publishFlow(w){const a=byId(w.id);const problems=[];if(!w.version)problems.push("app.json has no version");if(!w.src&&w.id!=="timer")problems.push("package.json present but no src/");
+  const f=sheet(`<h4>Publish ${h(w.name)}</h4><p>${a?`On sale now: <b>${a.version}</b>. The new version is reviewed before it replaces it.`:"The app is reviewed before it appears in the catalog."}</p>
+    <div class="kv"><span>Version</span><b>${w.version}</b>${a&&a.version===w.version?`<span class="pill bad">must be newer than ${a.version}</span>`:""}</div><div class="kv"><span>Package</span>app.json · APP.md · server.js · public/ ${w.src?"· src/ · package.json":""}<br><small style="color:var(--t4)">without node_modules and data.db · about ${w.src?"41":"6"} KB</small></div><div class="kv"><span>Publisher</span>${h(me().name)} · ${h(me().email)}</div>
+    <div class="checks" style="margin-top:4px"><div class="check"><i>✓</i>app.json has all seven fields</div><div class="check"><i class="${w.src?"":"warn"}">${w.src?"✓":"!"}</i>${w.src?"Ships src/":"Single-file app (no package.json) — src/ not required"}</div>${w.modified?`<div class="check"><i class="warn">!</i>Modified since install — your changes are what gets published</div>`:""}</div>
+    <div class="f"><label>Release notes</label><textarea rows="3" placeholder="What changed in this version (shown on the app page)"></textarea></div>
+    <div class="actions"><button type="button" class="btn" data-x>Cancel</button><button type="submit" class="btn pri" ${a&&a.version===w.version?"disabled":""}>${me().admin?"Publish":"Submit for review"}</button></div>`);
+  $("[data-x]",f).onclick=closeSheet;f.onsubmit=e=>{e.preventDefault();const notes=$("textarea",f).value.trim()||"—";closeSheet();w.owner=me().id;
+    if(me().admin){w.submissions.unshift({v:w.version,status:"approved",d:"2026-09-11",notes});if(a){a.version=w.version;a.versions.unshift({v:w.version,n:notes,d:"2026-09-11",status:"approved"})}render();toast(`${w.name} ${w.version} is on sale`,"ok")}
+    else{w.submissions.unshift({v:w.version,status:"pending",d:"2026-09-11 10:40",notes});QUEUE.unshift({id:w.id,name:w.name,icon:w.icon,v:w.version,replaces:a?a.version:"",author:me().name,email:me().email,kb:w.src?41:6,src:w.src,age:"just now",notes,checks:[["app.json has all seven fields","ok"],[w.src?"Ships src/":"Single-file app","ok"],["server.js present","ok"]],tree:"app.json  APP.md  server.js  public/  src/",diff:`- "version": "${a?a.version:"—"}",\n+ "version": "${w.version}",`});render();toast(`${w.name} ${w.version} submitted for review`,"ok")}}}
+function decide(q,status,note){QUEUE.splice(QUEUE.indexOf(q),1);S.qi=0;const w=WORKSPACE.find(x=>x.id===q.id);const s=w&&w.submissions.find(x=>x.v===q.v);if(s){s.status=status;if(note)s.reason=note}
+  const a=byId(q.id);if(status==="approved"){if(a){a.version=q.v;a.versions.unshift({v:q.v,n:q.notes,d:"2026-09-11",status:"approved"});a.listed=true}else APPS.push(Object.assign(app(q.id,q.name,q.icon,"Tools",q.notes,q.author,q.v,q.kb,0,[[q.v,q.notes,"2026-09-11"]],q.src)))}
+  else if(a)a.versions.unshift({v:q.v,n:q.notes,d:"2026-09-11",status:"rejected",reason:note});
+  render();toast(`${q.name} ${q.v} ${status}`,status==="approved"?"ok":"")}
+
+// 搜索、快捷键、角色
+$("#q").oninput=e=>{S.q=e.target.value;if(S.route.name!=="search"){S.stack.push(S.route);S.route={name:"search"}}render()};
+$("#q").onkeydown=e=>{if(e.key==="Escape"){e.target.blur();$("#q").value="";S.q="";back()}};
+document.onkeydown=e=>{if(e.key==="/"&&document.activeElement!==$("#q")&&!$("#scrim").classList.contains("open")){e.preventDefault();$("#q").focus()}else if(e.key==="Escape"){if($("#scrim").classList.contains("open"))closeSheet();else if(document.activeElement!==$("#q"))back()}};
+document.querySelectorAll(".devbar [data-role]").forEach(b=>b.onclick=()=>{document.querySelectorAll(".devbar [data-role]").forEach(x=>x.classList.toggle("on",x===b));S.role=b.dataset.role;APPS.forEach(a=>a.reviews.forEach(r=>r.me=r.uid===me().id));S.stack=[];S.route={name:"discover"};render()});
+render();
+</script>
+</body>
+</html>

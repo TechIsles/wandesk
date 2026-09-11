@@ -56,6 +56,34 @@ export const sdkSource = (): string => {
       copyText: (text) => call("copyText", { text }),
       close: () => call("close", {}),
     },
+    /** A real browser page: full Chromium, its own cookies and storage, no iframe restrictions.
+     *  open() returns { id }; place() hands the shell the rectangle inside this frame where the page
+     *  may paint (null takes it off screen, and is what you do while an overlay of your own is open).
+     *  The shell keeps that rectangle in step with the window and pulls the page whenever anything
+     *  covers it, sending back a snapshot to paint in its place. Listen with wandesk.on("web", fn):
+     *  { kind: "state" | "snapshot" | "favicon" | "found" | "failed" | "popup" | "key" | "download", id, … }. */
+    web: {
+      available: () => call("web.available", {}).then((r) => r.available),
+      open: (url) => call("web.create", { url }),
+      close: (id) => call("web.destroy", { id }),
+      place: (id, rect) => call("web.place", { id, rect }),
+      navigate: (id, url) => call("web.call", { id, method: "navigate", args: [url] }),
+      back: (id) => call("web.call", { id, method: "back" }),
+      forward: (id) => call("web.call", { id, method: "forward" }),
+      reload: (id, hard) => call("web.call", { id, method: "reload", args: [Boolean(hard)] }),
+      stop: (id) => call("web.call", { id, method: "stop" }),
+      zoom: (id, factor) => call("web.call", { id, method: "zoom", args: [factor] }),
+      find: (id, text, forward, next) => call("web.call", { id, method: "find", args: [text, forward, next] }),
+      stopFind: (id) => call("web.call", { id, method: "stopFind" }),
+      devtools: (id) => call("web.call", { id, method: "devtools" }),
+      print: (id) => call("web.call", { id, method: "print" }),
+      /** What the page says, for an app that wants to read or drive it. */
+      text: (id) => call("web.call", { id, method: "text" }).then((r) => r.text),
+      html: (id) => call("web.call", { id, method: "html" }).then((r) => r.html),
+      execute: (id, code) => call("web.call", { id, method: "execute", args: [code] }).then((r) => r.result),
+      capture: (id) => call("web.call", { id, method: "capture" }).then((r) => r.data),
+      state: (id) => call("web.call", { id, method: "state" }),
+    },
     /** Send messages between multiple instances of the same app (window ↔ sidebar panel). */
     on: (event, fn) => {
       if (!listeners.has(event)) listeners.set(event, new Set());

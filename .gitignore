@@ -9,3 +9,4 @@ release/
 .dev/
 AGENTS.md
 CLAUDE.md
+.DS_Store

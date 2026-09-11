@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { appUrl } from "../lib/http";
 import { t } from "../lib/i18n";
 import { publish, subscribe } from "./bus";
+import { WebSurface, webAvailable } from "./web";
 
 // The host for an app. This is the full extent of what the shell knows about an app:
 // one iframe, one postMessage channel. The shell doesn't know whether it's notes or a ledger inside.
@@ -25,6 +26,11 @@ export function AppFrame({ appId, mount = "window", onOpenApp, onTitle, onClose,
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState("");
   const frame = useRef<HTMLIFrameElement>(null);
+  const surface = useRef<WebSurface | null>(null);
+  // The shell hands these in fresh on every render; keeping them in a ref is what lets the bridge below
+  // be set up once per app instead of being torn down — and the app's pages destroyed — on every repaint.
+  const handlers = useRef({ onOpenApp, onTitle, onClose, onToast });
+  handlers.current = { onOpenApp, onTitle, onClose, onToast };
 
   useEffect(() => {
     let cancelled = false;
@@ -50,6 +56,9 @@ export function AppFrame({ appId, mount = "window", onOpenApp, onTitle, onClose,
     const listener = (event: string, payload: unknown) => post({ __wandesk: true, event, payload });
     const unsubscribe = subscribe(appId, listener);
 
+    // A real browser page, when the app asks for one: the shell owns where it may paint (see web.ts)
+    const web = () => (surface.current ||= new WebSurface(() => frame.current, (event) => post({ __wandesk: true, event: "web", payload: event })));
+
     const onMessage = (e: MessageEvent) => {
       const msg = e.data;
       if (!msg || msg.__wandesk !== true || !msg.method) return;
@@ -60,14 +69,19 @@ export function AppFrame({ appId, mount = "window", onOpenApp, onTitle, onClose,
       try {
         switch (msg.method) {
           case "context": reply({ appId, mount }); break;
-          case "toast": onToast?.(String(p.text || ""), String(p.kind || "info")); reply({ ok: true }); break;
+          case "toast": handlers.current.onToast?.(String(p.text || ""), String(p.kind || "info")); reply({ ok: true }); break;
           case "confirm": reply({ ok: window.confirm(String(p.text || "")) }); break;
-          case "title": onTitle?.(String(p.text || "")); reply({ ok: true }); break;
-          case "openApp": onOpenApp?.(String(p.appId || ""), String(p.route || "/")); reply({ ok: true }); break;
+          case "title": handlers.current.onTitle?.(String(p.text || "")); reply({ ok: true }); break;
+          case "openApp": handlers.current.onOpenApp?.(String(p.appId || ""), String(p.route || "/")); reply({ ok: true }); break;
           case "openExternal": window.open(String(p.url || ""), "_blank", "noopener"); reply({ ok: true }); break;
           case "copyText": void navigator.clipboard?.writeText(String(p.text || "")); reply({ ok: true }); break;
-          case "close": onClose?.(); reply({ ok: true }); break;
+          case "close": handlers.current.onClose?.(); reply({ ok: true }); break;
           case "emit": publish(appId, String(p.event || ""), p.payload, listener); reply({ ok: true }); break;
+          case "web.available": reply({ available: webAvailable() }); break;
+          case "web.create": web().create(String(p.url || "about:blank")).then(reply, (e) => reply(null, String(e?.message || e))); break;
+          case "web.destroy": web().destroy(Number(p.id)).then(reply, (e) => reply(null, String(e?.message || e))); break;
+          case "web.place": reply(web().place(Number(p.id), p.rect ?? null)); break;
+          case "web.call": web().call(Number(p.id), String(p.method || ""), p.args || []).then(reply, (e) => reply(null, String(e?.message || e))); break;
           default: reply(null, `Unknown method: ${msg.method}`); // an internal protocol error, not user-facing copy
         }
       } catch (err: any) {
@@ -75,8 +89,13 @@ export function AppFrame({ appId, mount = "window", onOpenApp, onTitle, onClose,
       }
     };
     window.addEventListener("message", onMessage);
-    return () => { window.removeEventListener("message", onMessage); unsubscribe(); };
-  }, [appId, mount, onOpenApp, onTitle, onClose, onToast]);
+    return () => {
+      window.removeEventListener("message", onMessage);
+      unsubscribe();
+      surface.current?.dispose();
+      surface.current = null;
+    };
+  }, [appId, mount]);
 
   if (error) return <div className="appframe-msg">{error}<br /><span>{t("appframe.checkRuntime")}</span></div>;
   if (!url) return <div className="appframe-msg">{t("appframe.starting")}</div>;

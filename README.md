@@ -106,7 +106,7 @@ Context and tools converge in the kernel. The kernel therefore never grows a dom
 | 🗞️ Hacker News | 🌿 Ramify | 🔮 I Ching |
 | 💕 Love House | 📱 Phone | 🃏 Three-Card Poker |
 | 🎱 Pool | 🏎️ Dusk Racer | 🚀 Aircraft |
-| 📋 Tasks | 🛍️ Store | |
+| 📋 Tasks | 🛍️ Store | 🌐 Browser |
 
 They ship with the package, land in your workspace on first launch, and from then on are indistinguishable from apps you made — edit them, delete them. Each one ships with its source in `apps/<id>/src`; to rebuild after editing, run `npm install && npm run build` inside that app's directory.
 

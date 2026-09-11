@@ -184,7 +184,30 @@ touching **the shell itself**:
 window.wandesk.context()                     // { appId, mount }
 window.wandesk.ui.toast / confirm / title / openApp / openExternal / copyText / close
 window.wandesk.on(event, fn) / emit(event, payload)   // between instances of the same app (window ↔ panel)
+window.wandesk.web.*                         // a real browser page (see below)
 ```
+
+### A real browser page
+
+`window.wandesk.web` is the one capability that is not an iframe. The shell asks Electron for a
+**WebContentsView** — a full Chromium page with its own cookies, storage, downloads and DevTools —
+and parks it over the rectangle the app names. No `X-Frame-Options` or CSP applies, because the page
+is not embedded in anything.
+
+```js
+const { id } = await wandesk.web.open("https://example.com");
+wandesk.web.place(id, { x, y, w, h });        // where it may paint, in this frame's coordinates; null = nowhere
+wandesk.web.navigate / back / forward / reload / stop / zoom / find / stopFind / devtools / print
+wandesk.web.text(id) / html(id) / execute(id, code) / capture(id)   // read or drive the page
+wandesk.on("web", (e) => …)                   // state · favicon · snapshot · found · failed · popup · key · download
+```
+
+The page floats above everything the shell draws, so the shell — not the app — decides when it may
+be seen: every frame it translates the rectangle into window coordinates and probes whether anything
+covers it, pulling the page off screen the instant something does (another window, a menu, a dialog)
+and handing back a snapshot for the app to paint in its place. An app that opens an overlay of its
+own calls `place(id, null)` for the same effect. Outside the desktop app there is no such surface and
+`wandesk.web.available()` is `false`.
 
 ## 5. One origin per app
 

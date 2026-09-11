@@ -1,0 +1,11 @@
+{
+  "id": "browser",
+  "name": "Browser",
+  "icon": "🌐",
+  "description": "A real browser: full Chromium pages with their own cookies and sessions, tabs, bookmarks, history, and an AI that reads the page.",
+  "version": "1.0.0",
+  "author": "Sider",
+  "mounts": {
+    "window": "/"
+  }
+}
