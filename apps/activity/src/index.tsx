@@ -6,12 +6,27 @@ import "./style.css";
 type Kind = "ask" | "run" | "stream";
 type Status = "running" | "done" | "error";
 type Row = {
-  id: number; app_id: string; kind: Kind; summary: string; status: Status;
-  prompt: string; result: string; error: string; tool_count: number;
+  id: number; thread_id: string; app_id: string; kind: Kind; summary: string; status: Status;
+  prompt: string; error: string; tool_count: number;
   input_tokens: number; output_tokens: number; started_at: string; finished_at: string | null; duration_ms: number;
 };
-type Call = Omit<Row, "tool_count"> & { system: string; tools: string };
+type Item = { seq: number; item: any; createdAt: string };
+type Call = { task: Omit<Row, "prompt" | "tool_count">; messages: Item[] };
 type Tool = { name: string; args: string; output: string };
+
+// The thread is a list of Responses items; pull the pieces the detail pane shows out of it.
+const textOf = (item: any) => (Array.isArray(item?.content) ? item.content.map((p: any) => p?.text || "").join("") : String(item?.content || ""));
+const readThread = (messages: Item[]) => {
+  const items = messages.map((m) => m.item);
+  const system = items.filter((i) => i?.type === "message" && i.role === "system").map(textOf).join("\n");
+  const prompt = items.filter((i) => i?.type === "message" && i.role === "user").map(textOf).join("\n\n");
+  const assistant = items.filter((i) => i?.type === "message" && i.role === "assistant").map(textOf);
+  const reasoning = items.filter((i) => i?.type === "reasoning").map((i) => (Array.isArray(i.summary) ? i.summary.map((p: any) => p?.text || "").join("") : "") || textOf(i)).filter(Boolean);
+  const outputs = new Map<string, string>();
+  for (const i of items) if (i?.type === "function_call_output") outputs.set(String(i.call_id), String(i.output ?? ""));
+  const tools: Tool[] = items.filter((i) => i?.type === "function_call").map((i) => ({ name: String(i.name || ""), args: String(i.arguments || ""), output: outputs.get(String(i.call_id)) ?? "" }));
+  return { system, prompt, reply: assistant[assistant.length - 1] || "", intermediate: assistant.slice(0, -1), reasoning, tools };
+};
 type Conv = { id: string; title: string };
 type Filter = "all" | Status;
 
@@ -78,9 +93,9 @@ export default function Activity() {
     let alive = true;
     const load = () => fetch(`/api/tasks/${selected}`).then((x) => x.json()).then((j) => { if (alive) setCall(j.item || null); }).catch(() => {});
     void load();
-    const timer = setInterval(() => { if (call?.status === "running" || !call) void load(); }, REFRESH_MS);
+    const timer = setInterval(() => { if (call?.task.status === "running" || !call) void load(); }, REFRESH_MS);
     return () => { alive = false; clearInterval(timer); };
-  }, [selected, call?.status]);
+  }, [selected, call?.task.status]);
 
   const counts = useMemo(() => ({
     all: rows.length,
@@ -94,7 +109,8 @@ export default function Activity() {
   }, [rows, filter, query]);
   const totals = useMemo(() => rows.reduce((t, r) => ({ input: t.input + r.input_tokens, output: t.output + r.output_tokens }), { input: 0, output: 0 }), [rows]);
   const live = counts.running + convs.length;
-  const tools: Tool[] = useMemo(() => { try { return call ? JSON.parse(call.tools) : []; } catch { return []; } }, [call]);
+  const thread = useMemo(() => (call ? readThread(call.messages) : null), [call]);
+  const task = call?.task;
 
   const TABS: Array<[Filter, string]> = [["all", "All"], ["running", "Running"], ["done", "Done"], ["error", "Error"]];
 
@@ -153,44 +169,47 @@ export default function Activity() {
         </section>
 
         <section className="act-detail">
-          {!call ? (
-            <div className="act-detail-empty">{selected == null ? "Select a call to see what was asked and what came back." : "Loading…"}</div>
+          {!task || !thread ? (
+            <div className="act-detail-empty">{selected == null ? "Select a task to see what was asked and what came back." : "Loading…"}</div>
           ) : (
             <>
               <div className="act-detail-head">
-                <span className={`act-badge is-${call.status}`}>{call.status === "running" && <i className="spin" />}{call.status}</span>
-                <h2>{call.summary}</h2>
+                <span className={`act-badge is-${task.status}`}>{task.status === "running" && <i className="spin" />}{task.status}</span>
+                <h2>{task.summary}</h2>
                 <div className="act-facts">
-                  <span><b>App</b>{appLabel(call.app_id)}</span>
-                  <span><b>Kind</b>{KIND_LABEL[call.kind]}</span>
-                  <span><b>Started</b>{clock(call.started_at)}</span>
-                  <span><b>Duration</b>{duration(call.duration_ms, call.status === "running", call.started_at)}</span>
-                  <span><b>Tokens</b>{tokens(call.input_tokens)} in · {tokens(call.output_tokens)} out</span>
+                  <span><b>App</b>{appLabel(task.app_id)}</span>
+                  <span><b>Kind</b>{KIND_LABEL[task.kind]}</span>
+                  <span><b>Started</b>{clock(task.started_at)}</span>
+                  <span><b>Duration</b>{duration(task.duration_ms, task.status === "running", task.started_at)}</span>
+                  <span><b>Tokens</b>{tokens(task.input_tokens)} in · {tokens(task.output_tokens)} out</span>
+                  <span><b>Thread</b><code>{task.thread_id.slice(0, 8)}</code> · {call.messages.length} items</span>
                 </div>
               </div>
               <div className="act-detail-body">
-                {call.error && <Block title="Error" tone="error" text={call.error} />}
-                <Block title="Prompt" text={call.prompt || "(empty)"} mono={false} />
-                {call.system && <Block title="System prompt" text={call.system} collapsed />}
-                {tools.length > 0 && (
+                {task.error && <Block title="Error" tone="error" text={task.error} />}
+                <Block title="Prompt" text={thread.prompt || "(empty)"} mono={false} />
+                {thread.system && <Block title="System prompt" text={thread.system} collapsed />}
+                {thread.reasoning.length > 0 && <Block title="Reasoning" text={thread.reasoning.join("\n\n")} mono={false} collapsed />}
+                {thread.tools.length > 0 && (
                   <div className="act-block">
-                    <div className="act-block-title">Tool calls <span>{tools.length}</span></div>
+                    <div className="act-block-title">Tool calls <span>{thread.tools.length}</span></div>
                     <div className="act-toolist">
-                      {tools.map((t, i) => (
+                      {thread.tools.map((t, i) => (
                         <details key={i} className="act-tool">
                           <summary><code>{t.name}</code><span className="act-tool-args">{oneLine(t.args).slice(0, 140)}</span></summary>
                           <div className="act-tool-body">
                             <div className="act-tool-label">Arguments</div>
                             <pre>{prettyArgs(t.args)}</pre>
                             <div className="act-tool-label">Output</div>
-                            <pre>{t.output || "(no output)"}</pre>
+                            <pre>{t.output || (task.status === "running" ? "Running…" : "(no output)")}</pre>
                           </div>
                         </details>
                       ))}
                     </div>
                   </div>
                 )}
-                <Block title={call.status === "running" ? "Reply (in progress)" : "Reply"} text={call.result || (call.status === "running" ? "Waiting for the model…" : "(no text)")} mono={false} />
+                {thread.intermediate.length > 0 && <Block title="Intermediate text" text={thread.intermediate.join("\n\n")} mono={false} collapsed />}
+                <Block title={task.status === "running" ? "Reply (in progress)" : "Reply"} text={thread.reply || (task.status === "running" ? "Waiting for the model…" : "(no text)")} mono={false} />
               </div>
             </>
           )}

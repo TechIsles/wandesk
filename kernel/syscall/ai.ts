@@ -17,7 +17,8 @@ import { EVENTS } from "../ai/events.js";
 import { AGENT_LIMITS } from "../config.js";
 import { modelConfig, agentLimits } from "../data/settings.js";
 import { appsBlock, languageBlock } from "../apps/scan.js";
-import { startTask, finishTask, listTasks, getTask, runningCount, type TaskKind, type TaskTool } from "../data/tasks.js";
+import { startTask, finishTask, listTasks, getTask, runningCount, type TaskKind } from "../data/tasks.js";
+import { appendMessage } from "../data/messages.js";
 import { workspace } from "../paths.js";
 import { broadcast } from "../realtime.js";
 
@@ -28,12 +29,6 @@ export type AiRequest = {
   /** An app can bring its own context; it is appended to the prompt as JSON. */
   data?: unknown;
 };
-
-const textItem = (text: string) => ({
-  type: "message",
-  role: "user",
-  content: [{ type: "input_text", text }],
-});
 
 /** instructions = the app's persona + the app roster and language note injected by the kernel. An app never sees this raw text — only the model does. */
 export const buildInstructions = (system?: string) => {
@@ -55,49 +50,53 @@ const assertConfigured = () => {
   return cfg;
 };
 
-/** Every call becomes one task row —— summary is required so the user can see who's burning tokens and why. */
-const track = (appId: string, kind: TaskKind, req: AiRequest) => {
+const textItem = (role: "system" | "user" | "assistant", text: string) => ({
+  type: "message",
+  role,
+  content: [{ type: role === "assistant" ? "output_text" : "input_text", text }],
+});
+
+/** Every call becomes one task row plus a thread in messages —— summary is required so the user can see who's burning tokens and why.
+ *  The thread opens with the instructions as a system message and the prompt as the user message; the runner's items follow. */
+const track = (appId: string, kind: TaskKind, req: AiRequest, instructions: string) => {
   const clean = String(req.summary || "").trim();
   if (!clean) throw new Error("summary is required: a short sentence describing what this call is for");
-  const id = startTask(appId, kind, clean, buildPrompt(req), String(req.system || ""));
+  const { id, threadId } = startTask(appId, kind, clean);
+  appendMessage(threadId, textItem("system", instructions));
+  appendMessage(threadId, textItem("user", buildPrompt(req)));
   broadcast("activity.start", { id, appId, summary: clean });
   return {
-    done: (detail: { result?: string; usage?: any; tools?: TaskTool[] } = {}) => { finishTask(id, "done", detail); broadcast("activity.end", { id, status: "done" }); },
-    fail: (error: string, detail: { result?: string; usage?: any; tools?: TaskTool[] } = {}) => { finishTask(id, "error", { ...detail, error }); broadcast("activity.end", { id, status: "error" }); },
+    threadId,
+    item: (item: unknown) => { if (item) appendMessage(threadId, item); },
+    done: (usage?: any) => { finishTask(id, "done", { usage }); broadcast("activity.end", { id, status: "done" }); },
+    fail: (error: string, usage?: any) => { finishTask(id, "error", { error, usage }); broadcast("activity.end", { id, status: "error" }); },
   };
-};
-
-/** The tool calls of an agent round, paired with their outputs, for the ledger. */
-const toolsOf = (items: any[] = []): TaskTool[] => {
-  const outputs = new Map<string, string>();
-  for (const item of items) if (item?.type === "function_call_output") outputs.set(String(item.call_id), String(item.output ?? ""));
-  return items
-    .filter((item) => item?.type === "function_call")
-    .map((item) => ({ name: String(item.name || ""), args: String(item.arguments || "").slice(0, 4000), output: (outputs.get(String(item.call_id)) || "").slice(0, 4000) }));
 };
 
 // ── tasks: the record of who called the AI, for the Activity app ─────────────────
 export const aiTasks = (_appId: string, opts: { limit?: number; id?: number } = {}) =>
-  opts.id ? { item: getTask(Number(opts.id)) || null } : { items: listTasks(Number(opts.limit) || 100), running: runningCount() };
+  opts.id ? { item: getTask(Number(opts.id)) } : { items: listTasks(Number(opts.limit) || 100), running: runningCount() };
 
 // ── ask: one-shot completion ────────────────────────────────────────────
 export const aiAsk = async (appId: string, req: AiRequest) => {
   const cfg = assertConfigured();
-  const act = track(appId, "ask", req);
+  const instructions = buildInstructions(req.system);
+  const act = track(appId, "ask", req, instructions);
   try {
     const { text, usage } = await complete({
       driver: cfg.driver,
       responsesUrl: cfg.url,
       apiKey: cfg.apiKey,
       model: cfg.model,
-      instructions: buildInstructions(req.system),
-      input: [textItem(buildPrompt(req))],
+      instructions,
+      input: [textItem("user", buildPrompt(req))],
       retry: AGENT_LIMITS.retry,
       errorMaxChars: AGENT_LIMITS.errorMaxChars,
       modelOptions: undefined,
       signal: undefined,
     });
-    act.done({ result: String(text || ""), usage });
+    act.item(textItem("assistant", String(text || "")));
+    act.done(usage);
     return { ok: true, text, usage };
   } catch (e: any) {
     act.fail(String(e?.message || e));
@@ -107,8 +106,9 @@ export const aiAsk = async (appId: string, req: AiRequest) => {
 
 // ── the single agent round shared by run / stream ──────────────────────────────
 type RunHooks = { onEvent?: (name: string, payload: any) => void };
+type Tracker = ReturnType<typeof track>;
 
-const runOnce = async (appId: string, req: AiRequest, hooks: RunHooks = {}) => {
+const runOnce = async (appId: string, req: AiRequest, instructions: string, act: Tracker, hooks: RunHooks = {}) => {
   const cfg = assertConfigured();
   const runId = `${appId}-${Date.now()}`;
   const result = await runAgent({
@@ -117,14 +117,18 @@ const runOnce = async (appId: string, req: AiRequest, hooks: RunHooks = {}) => {
     responsesUrl: cfg.url,
     apiKey: cfg.apiKey,
     model: cfg.model,
-    instructions: buildInstructions(req.system),
-    input: [textItem(buildPrompt(req))],
+    instructions,
+    input: [textItem("user", buildPrompt(req))],
     maxRounds: agentLimits().maxRounds,
     errorMaxChars: AGENT_LIMITS.errorMaxChars,
     retry: AGENT_LIMITS.retry,
     workdir: workspace(),
     bash: { ...AGENT_LIMITS.bash, maxOutputChars: agentLimits().toolOutputChars },
-    emit: (name: string, payload: any) => hooks.onEvent?.(name, payload),
+    emit: (name: string, payload: any) => {
+      // Completed items (message / reasoning / function_call / function_call_output) go into the thread as they happen
+      if (payload?.item && name !== EVENTS.DONE) act.item(payload.item);
+      hooks.onEvent?.(name, payload);
+    },
   });
   const text = (result.items || [])
     .filter((i: any) => i.type === "message")
@@ -135,10 +139,12 @@ const runOnce = async (appId: string, req: AiRequest, hooks: RunHooks = {}) => {
 };
 
 export const aiRun = async (appId: string, req: AiRequest) => {
-  const act = track(appId, "run", req);
+  assertConfigured();
+  const instructions = buildInstructions(req.system);
+  const act = track(appId, "run", req, instructions);
   try {
-    const out = await runOnce(appId, req);
-    act.done({ result: out.text, usage: out.usage, tools: toolsOf(out.items) });
+    const out = await runOnce(appId, req, instructions, act);
+    act.done(out.usage);
     return { ok: true, ...out };
   } catch (e: any) {
     act.fail(String(e?.message || e));
@@ -156,17 +162,19 @@ export const aiStream = (appId: string, req: AiRequest): ReadableStream<Uint8Arr
           controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
         } catch { /* downstream already disconnected */ }
       };
-      let act: ReturnType<typeof track> | null = null;
+      let act: Tracker | null = null;
       try {
-        act = track(appId, "stream", req);
+        assertConfigured();
+        const instructions = buildInstructions(req.system);
+        act = track(appId, "stream", req, instructions);
         // The kernel's own internal done never goes out —— it doesn't carry the final text. We add
         // a single done here that carries the full text instead; the app frontend only ever sees
         // this one end-of-stream signal and never has to tell the two kinds of done apart.
-        const out = await runOnce(appId, req, {
+        const out = await runOnce(appId, req, instructions, act, {
           onEvent: (name, payload) => { if (name !== EVENTS.DONE) send(name, payload); },
         });
         send(EVENTS.DONE, { text: out.text, usage: out.usage, status: out.status });
-        act.done({ result: out.text, usage: out.usage, tools: toolsOf(out.items) });
+        act.done(out.usage);
       } catch (e: any) {
         const message = String(e?.message || e);
         send(EVENTS.ERROR, { error: message });

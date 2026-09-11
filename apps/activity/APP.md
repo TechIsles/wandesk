@@ -4,7 +4,7 @@ Activity monitor. Every AI call any app has made through env.AI — which app, w
 
 ## Data
 
-No tables of its own. `/api/tasks?limit=` lists the kernel's tasks (one per env.AI call) and `/api/tasks/:id` returns one in full (prompt, system prompt, result, tool calls), both through `env.AI.tasks`. `/api/runs` reads running conversation ids and titles through `env.AI.fetch` (`/api/runs`, `/api/conversations`). The page refreshes every two seconds.
+No tables of its own. `/api/tasks?limit=` lists the kernel's tasks (one per env.AI call) and `/api/tasks/:id` returns one task with its thread — every message item the runner produced (system prompt, user prompt, reasoning, tool calls and outputs, replies) — both through `env.AI.tasks`. `/api/runs` reads running conversation ids and titles through `env.AI.fetch` (`/api/runs`, `/api/conversations`). The page refreshes every two seconds.
 
 ## UI
 

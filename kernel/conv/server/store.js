@@ -23,30 +23,30 @@ export function openDatabase(file) {
         );
         CREATE TABLE IF NOT EXISTS messages (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+            thread_id TEXT NOT NULL,
             seq INTEGER NOT NULL,
             item_json TEXT NOT NULL,
             created_at TEXT NOT NULL,
-            UNIQUE(conversation_id, seq)
+            UNIQUE(thread_id, seq)
         );
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL
         );
         CREATE TABLE IF NOT EXISTS compactions (
-            conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+            thread_id TEXT NOT NULL,
             start_seq INTEGER NOT NULL CHECK (start_seq > 0),
             end_seq INTEGER NOT NULL CHECK (end_seq >= start_seq),
             summary TEXT NOT NULL,
             kind TEXT NOT NULL CHECK (kind IN ('summary', 'mechanical')),
             tokens INTEGER NOT NULL DEFAULT 0,
             at TEXT NOT NULL,
-            PRIMARY KEY (conversation_id, end_seq)
+            PRIMARY KEY (thread_id, end_seq)
         );
-        CREATE INDEX IF NOT EXISTS idx_messages_conversation_seq
-        ON messages(conversation_id, seq);
-        CREATE INDEX IF NOT EXISTS idx_compactions_conversation
-        ON compactions(conversation_id, end_seq);
+        CREATE INDEX IF NOT EXISTS idx_messages_thread_seq
+        ON messages(thread_id, seq);
+        CREATE INDEX IF NOT EXISTS idx_compactions_thread
+        ON compactions(thread_id, end_seq);
     `);
     ensureColumn(db, 'conversations', 'pinned', 'INTEGER NOT NULL DEFAULT 0');
     db.exec('PRAGMA optimize;');
@@ -67,12 +67,15 @@ export function createStore(db) {
     const insert = db.prepare(`INSERT INTO conversations
         (id, title, workdir, context_json, created_at, updated_at) VALUES (?, ?, ?, '[]', ?, ?)`);
     const remove = db.prepare('DELETE FROM conversations WHERE id = ?');
+    // messages / compactions are keyed by thread, not by conversation, so there is no cascade: a conversation deletes its own thread
+    const removeMessages = db.prepare('DELETE FROM messages WHERE thread_id = ?');
+    const removeCompactions = db.prepare('DELETE FROM compactions WHERE thread_id = ?');
     const pageLatest = db.prepare(`SELECT id, seq, item_json, created_at FROM messages
-        WHERE conversation_id = ? ORDER BY seq DESC LIMIT ?`);
+        WHERE thread_id = ? ORDER BY seq DESC LIMIT ?`);
     const pageBefore = db.prepare(`SELECT id, seq, item_json, created_at FROM messages
-        WHERE conversation_id = ? AND seq < ? ORDER BY seq DESC LIMIT ?`);
-    const nextSeq = db.prepare('SELECT COALESCE(MAX(seq), 0) + 1 AS seq FROM messages WHERE conversation_id = ?');
-    const addMessage = db.prepare(`INSERT INTO messages (conversation_id, seq, item_json, created_at)
+        WHERE thread_id = ? AND seq < ? ORDER BY seq DESC LIMIT ?`);
+    const nextSeq = db.prepare('SELECT COALESCE(MAX(seq), 0) + 1 AS seq FROM messages WHERE thread_id = ?');
+    const addMessage = db.prepare(`INSERT INTO messages (thread_id, seq, item_json, created_at)
         VALUES (?, ?, ?, ?)`);
     const updateContext = db.prepare(`UPDATE conversations
         SET context_json = ?, usage_json = ?, updated_at = ? WHERE id = ?`);
@@ -83,10 +86,10 @@ export function createStore(db) {
     const listSettings = db.prepare('SELECT key, value FROM settings');
     const upsertSetting = db.prepare(`INSERT INTO settings (key, value) VALUES (?, ?)
         ON CONFLICT(key) DO UPDATE SET value = excluded.value`);
-    const latestMessageSeq = db.prepare('SELECT COALESCE(MAX(seq), 0) AS seq FROM messages WHERE conversation_id = ?');
-    const lastCompaction = db.prepare('SELECT end_seq FROM compactions WHERE conversation_id = ? ORDER BY end_seq DESC LIMIT 1');
+    const latestMessageSeq = db.prepare('SELECT COALESCE(MAX(seq), 0) AS seq FROM messages WHERE thread_id = ?');
+    const lastCompaction = db.prepare('SELECT end_seq FROM compactions WHERE thread_id = ? ORDER BY end_seq DESC LIMIT 1');
     const addCompaction = db.prepare(`INSERT INTO compactions
-        (conversation_id, start_seq, end_seq, summary, kind, tokens, at) VALUES (?, ?, ?, ?, ?, ?, ?)`);
+        (thread_id, start_seq, end_seq, summary, kind, tokens, at) VALUES (?, ?, ?, ?, ?, ?, ?)`);
 
     const now = () => new Date().toISOString();
     const parseConversation = (row) => row && ({
@@ -117,7 +120,11 @@ export function createStore(db) {
             insert.run(id, title, workdir, at, at);
             return parseConversation(get.get(id));
         },
-        deleteConversation: (id) => remove.run(id).changes > 0,
+        deleteConversation(id) {
+            removeMessages.run(id);
+            removeCompactions.run(id);
+            return remove.run(id).changes > 0;
+        },
 
         /** The most recent page (returned in ascending seq order); pass `before` as the previous page's earliest seq to page further back. */
         listMessages(id, { before = 0, limit = 60 } = {}) {
