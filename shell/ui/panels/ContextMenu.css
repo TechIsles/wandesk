@@ -22,4 +22,4 @@
 .ctx-line { height: 1px; background: #c2d6e8; box-shadow: 0 1px 0 rgba(255,255,255,.8); margin: 5px 7px; }
 
 /* Taskbar right-click menu: pops up flush with the taskbar's top edge (like Windows) */
-.tb-menu { bottom: 52px; z-index: 90; }
+

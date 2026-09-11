@@ -1,6 +1,5 @@
-/* Design tokens — kept in sync with wandesk-skill's index.css. The app's CSS depends on these variables.
-   Note: in v2 each app is its own standalone page, so this file is also responsible for making
-   the root element fill the iframe. */
+/* Design tokens shared by the preinstalled apps. The app's CSS relies on these variables;
+   the app is its own page, so the root element must fill the iframe. */
 :root {
   --bg: #f6f6f7; --panel: #fff; --ink: #1d1d20; --ink2: #55555c; --ink3: #8e8e96;
   --line: #e8e8ea; --line2: #dededf; --blue: #62a5f4; --blue-deep: #3b82f6;

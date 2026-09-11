@@ -25,7 +25,7 @@ export default {
         return json({ conversations: all.filter((c) => ids.has(c.id)).map((c) => ({ id: c.id, title: c.title })) });
       }
       if (url.pathname === "/api/open-assistant") {
-        await env.UI.openApp("chat", "/");
+        await env.UI.openApp("assistant", "/");
         return json({ ok: true });
       }
       return json({ ok: false, error: "not found" }, 404);

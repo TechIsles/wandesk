@@ -1,9 +1,5 @@
-// Generated once from a template; now plain source — edit freely.
-// Frontend source lives in src/; after editing, run `npm install && npm run build` in this directory.
-//
-// The app is its own website: static assets and the API are both served by itself. The three APIs are
-// host capabilities ported over from wandesk-skill, now wired to its own bindings — the app frontend
-// itself is unchanged.
+// Backend of this app: a Worker serving its own API and static assets. Frontend source lives in src/;
+// after editing, run `npm install && npm run build` in this directory.
 const SCHEMA = "-- Notebook · data model\n-- Each record is one page in the notebook: title + body + paper style + timestamps.\n\nCREATE TABLE IF NOT EXISTS app_notes_pages (\n  id         INTEGER PRIMARY KEY AUTOINCREMENT,\n  title      TEXT NOT NULL DEFAULT '',\n  body       TEXT NOT NULL DEFAULT '',\n  paper      INTEGER NOT NULL DEFAULT 0,        -- paper style index (ruled/grid/dot/kraft...)\n  pinned     INTEGER NOT NULL DEFAULT 0,        -- 1 = pinned to top with the ribbon bookmark\n  created_at TEXT NOT NULL DEFAULT (datetime('now')),\n  updated_at TEXT NOT NULL DEFAULT (datetime('now'))\n);\n\nCREATE INDEX IF NOT EXISTS app_notes_idx_pages_pinned_updated ON app_notes_pages (pinned DESC, updated_at DESC);\n";
 
 let ready = false;
@@ -48,7 +44,7 @@ export default {
         if (schema) {
           try { parsed = JSON.parse(String(out.text).trim().replace(/^\`\`\`[a-z]*\n?|\`\`\`$/g, "")); } catch { /* model didn't return valid JSON */ }
         }
-        return json({ ok: true, result: out.text, json: parsed, engine: "wandesk" });
+        return json({ ok: true, result: out.text, json: parsed });
       }
 
       // ── Outbound network: full capability, backend fetches directly ──

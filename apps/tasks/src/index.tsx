@@ -50,13 +50,15 @@ const duration = (ms: number, running: boolean, startedAt: string) => {
   return `${Math.floor(value / 60_000)} min ${Math.round((value % 60_000) / 1000)} s`;
 };
 const tokens = (n: number) => (n >= 10_000 ? `${(n / 1000).toFixed(1)}k` : String(n));
-const appLabel = (id: string) => (id === "chat" ? "Assistant" : id.charAt(0).toUpperCase() + id.slice(1));
+const BUILTIN_LABELS: Record<string, string> = { shell: "Shell" };
 const KIND_LABEL: Record<Kind, string> = { ask: "Completion", run: "Agent run", stream: "Agent run" };
 const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
 const prettyArgs = (s: string) => { try { return JSON.stringify(JSON.parse(s), null, 2); } catch { return s; } };
 
 export default function Tasks() {
   const [rows, setRows] = useState<Row[]>([]);
+  const [names, setNames] = useState<Record<string, string>>({});
+  const appLabel = (id: string) => names[id] || BUILTIN_LABELS[id] || id;
   const [convs, setConvs] = useState<Conv[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
@@ -75,6 +77,7 @@ export default function Tasks() {
         ]);
         if (!alive) return;
         setRows(a.items || []);
+        setNames(a.apps || {});
         setConvs(r.conversations || []);
         setError("");
         tick((n) => n + 1);

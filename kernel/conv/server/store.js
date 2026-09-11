@@ -1,6 +1,4 @@
-// SQLite schema and data access.
-// Schema changes go through the lightweight ensureColumn migration —— an existing local
-// database just gets a column added, we never drop and recreate it.
+// Conversation store: data access over the kernel database (schema in kernel/data/schema.sql).
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -10,54 +8,9 @@ export function openDatabase(file) {
     mkdirSync(dirname(path), { recursive: true });
     const db = new DatabaseSync(path);
     db.exec('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;');
-    db.exec(`
-        CREATE TABLE IF NOT EXISTS conversations (
-            id TEXT PRIMARY KEY,
-            title TEXT NOT NULL,
-            workdir TEXT NOT NULL,
-            pinned INTEGER NOT NULL DEFAULT 0,
-            context_json TEXT NOT NULL DEFAULT '[]',
-            usage_json TEXT,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            thread_id TEXT NOT NULL,
-            seq INTEGER NOT NULL,
-            item_json TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            UNIQUE(thread_id, seq)
-        );
-        CREATE TABLE IF NOT EXISTS settings (
-            key TEXT PRIMARY KEY,
-            value TEXT NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS compactions (
-            thread_id TEXT NOT NULL,
-            start_seq INTEGER NOT NULL CHECK (start_seq > 0),
-            end_seq INTEGER NOT NULL CHECK (end_seq >= start_seq),
-            summary TEXT NOT NULL,
-            kind TEXT NOT NULL CHECK (kind IN ('summary', 'mechanical')),
-            tokens INTEGER NOT NULL DEFAULT 0,
-            at TEXT NOT NULL,
-            PRIMARY KEY (thread_id, end_seq)
-        );
-        CREATE INDEX IF NOT EXISTS idx_messages_thread_seq
-        ON messages(thread_id, seq);
-        CREATE INDEX IF NOT EXISTS idx_compactions_thread
-        ON compactions(thread_id, end_seq);
-    `);
-    ensureColumn(db, 'conversations', 'pinned', 'INTEGER NOT NULL DEFAULT 0');
+    // Tables are defined once, in kernel/data/schema.sql; the kernel has created them before this store opens.
     db.exec('PRAGMA optimize;');
     return db;
-}
-
-/** CREATE TABLE IF NOT EXISTS does nothing to an old database —— new columns get added here. */
-function ensureColumn(db, table, column, definition) {
-    const columns = db.prepare(`PRAGMA table_info(${table})`).all();
-    if (columns.some((item) => item.name === column)) return;
-    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
 }
 
 export function createStore(db) {
@@ -84,8 +37,6 @@ export function createStore(db) {
     const updateWorkdir = db.prepare('UPDATE conversations SET workdir = ? WHERE id = ?');
     const touchRow = db.prepare('UPDATE conversations SET updated_at = ? WHERE id = ?');
     const listSettings = db.prepare('SELECT key, value FROM settings');
-    const upsertSetting = db.prepare(`INSERT INTO settings (key, value) VALUES (?, ?)
-        ON CONFLICT(key) DO UPDATE SET value = excluded.value`);
     const latestMessageSeq = db.prepare('SELECT COALESCE(MAX(seq), 0) AS seq FROM messages WHERE thread_id = ?');
     const lastCompaction = db.prepare('SELECT end_seq FROM compactions WHERE thread_id = ? ORDER BY end_seq DESC LIMIT 1');
     const addCompaction = db.prepare(`INSERT INTO compactions
@@ -100,14 +51,6 @@ export function createStore(db) {
 
     return {
         getSettings: () => Object.fromEntries(listSettings.all().map((row) => [row.key, row.value])),
-        setSettings(values) {
-            db.exec('BEGIN');
-            try {
-                for (const [key, value] of Object.entries(values)) upsertSetting.run(key, String(value ?? ''));
-                db.exec('COMMIT');
-            } catch (error) { db.exec('ROLLBACK'); throw error; }
-            return Object.fromEntries(listSettings.all().map((row) => [row.key, row.value]));
-        },
         latestMessageSeq: (id) => Number(latestMessageSeq.get(id).seq) || 0,
         lastCompactionEnd: (id) => Number(lastCompaction.get(id)?.end_seq) || 0,
         appendCompaction(id, { startSeq, endSeq, summary, kind, tokens = 0 }) {

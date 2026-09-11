@@ -2,7 +2,6 @@
 import { statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { EVENTS } from '../shared/events.js';
-import { DRIVER_IDS } from '../../ai/index.js';
 
 const json = (response, status, body) => {
     response.writeHead(status, { 'content-type': 'application/json; charset=utf-8' });
@@ -38,20 +37,6 @@ export function createApi({ config, store, runs, files, channel, meta }) {
             if (method === 'GET' && url.pathname === '/api/meta') {
                 json(response, 200, { model: store.getSettings().model || '', defaultWorkdir: config.workdir, version: meta.version });
                 return true;
-            }
-            if (method === 'GET' && url.pathname === '/api/settings') {
-                json(response, 200, { settings: store.getSettings() }); return true;
-            }
-            if (method === 'PUT' && url.pathname === '/api/settings') {
-                const input = await readBody(request);
-                const allowed = ['driver', 'responsesUrl', 'apiKey', 'model', 'instructions'];
-                const values = Object.fromEntries(allowed.filter((key) => typeof input[key] === 'string').map((key) => [key, input[key].trim()]));
-                // The driver name must be checked here —— storing an unrecognized value and only blowing up on the next run would be too late
-                if (values.driver && !DRIVER_IDS.includes(values.driver)) {
-                    json(response, 400, { error: `Unknown driver: ${values.driver}` }); return true;
-                }
-                const settings = store.setSettings(values);
-                json(response, 200, { settings }); return true;
             }
             if (method === 'GET' && url.pathname === '/api/events') { channel.handle(request, response); return true; }
             if (method === 'GET' && url.pathname === '/api/runs') { json(response, 200, { ids: runs.ids() }); return true; }

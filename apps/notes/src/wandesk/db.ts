@@ -1,7 +1,4 @@
-// The app accesses its own database. **This is one of the few files actually changed for v2** — the app code itself is untouched.
-//
-// Old version: POST /apps/<id>/db, the host looked up the database by id.
-// v2: the app is its own website, hitting its own /api/db directly; the backend server.js wires it to env.DB (D1).
+// The app accessing its own database: POST /api/db on its own origin; the backend runs it on env.DB.
 export type DbResult = {
   ok: boolean;
   rows?: any[];

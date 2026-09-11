@@ -1,9 +1,5 @@
-// Generated once from a template; now plain source — edit freely.
-// Frontend source lives in src/; after editing, run `npm install && npm run build` in this directory.
-//
-// The app is its own website: it answers both static assets and API calls. The three
-// APIs were migrated from wandesk-skill's host capabilities and now wire up to this
-// app's own bindings — the frontend didn't change a line.
+// Backend of this app: a Worker serving its own API and static assets. Frontend source lives in src/;
+// after editing, run `npm install && npm run build` in this directory.
 const SCHEMA = "";
 
 let ready = false;
@@ -48,7 +44,7 @@ export default {
         if (schema) {
           try { parsed = JSON.parse(String(out.text).trim().replace(/^\`\`\`[a-z]*\n?|\`\`\`$/g, "")); } catch { /* model didn't return valid JSON */ }
         }
-        return json({ ok: true, result: out.text, json: parsed, engine: "wandesk" });
+        return json({ ok: true, result: out.text, json: parsed });
       }
 
       // -- outbound: full access, the backend fetches directly --

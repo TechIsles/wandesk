@@ -1,10 +1,7 @@
-// Generated once from a template; now plain source — edit freely.
-// Frontend source lives in src/; after editing, run `npm install && npm run build` in this directory.
-//
-// The app is its own website: it answers both static assets and API requests itself. The
-// three APIs are host capabilities carried over from wandesk-skill, now wired to this app's
-// own bindings — the app frontend didn't change a line.
-const SCHEMA = "-- Phone · the AI-generated screen log. Every screen the AI improvises is appended here,\n-- so reopening the phone resumes the latest screen. Powering off wipes the table for a fresh\n-- phone (and a fresh owner/world). Continuity within a session is native to the agent\n-- conversation (conversationId), so we don't need to store history for the model — just\n-- enough to put the last screen back on the LCD.\nCREATE TABLE IF NOT EXISTS app_phone_screens (\n  id         INTEGER PRIMARY KEY AUTOINCREMENT,\n  content    TEXT NOT NULL,                       -- inline-styled HTML for the screen body\n  options    TEXT NOT NULL DEFAULT '[]',          -- JSON array of {text} follow-up choices\n  created_at TEXT NOT NULL DEFAULT (datetime('now'))\n);\n\n-- The whole phone is one persistent conversation: the conversationId lives here, carrying\n-- across windows/restarts, so the owner and their life don't break just because the window closed.\nCREATE TABLE IF NOT EXISTS app_phone_state (\n  key   TEXT PRIMARY KEY,\n  value TEXT NOT NULL\n);\n";
+// Backend of this app: a Worker serving its own API and static assets. Frontend source lives in src/;
+// after editing, run `npm install && npm run build` in this directory.
+const SCHEMA = "-- Phone · the AI-generated screen log. Every screen the AI improvises is appended here,\n-- so reopening the phone resumes the latest screen. Powering off wipes the table for a fresh\n-- phone (and a fresh owner/world). The model is handed the current screen on every call, so\n-- this is only what is needed to put the last screen back on the LCD.\nCREATE TABLE IF NOT EXISTS app_phone_screens (\n  id         INTEGER PRIMARY KEY AUTOINCREMENT,\n  content    TEXT NOT NULL,                       -- inline-styled HTML for the screen body\n  options    TEXT NOT NULL DEFAULT '[]',          -- JSON array of {text} follow-up choices\n  created_at TEXT NOT NULL DEFAULT (datetime('now'))\n);
+";
 
 let ready = false;
 const ensure = async (env) => {
@@ -48,7 +45,7 @@ export default {
         if (schema) {
           try { parsed = JSON.parse(String(out.text).trim().replace(/^\`\`\`[a-z]*\n?|\`\`\`$/g, "")); } catch { /* model didn't return valid JSON */ }
         }
-        return json({ ok: true, result: out.text, json: parsed, engine: "wandesk" });
+        return json({ ok: true, result: out.text, json: parsed });
       }
 
       // ── outbound network: unrestricted, the backend fetches directly ──

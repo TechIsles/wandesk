@@ -1,9 +1,5 @@
-// Generated once from a template; now plain source — edit freely.
-// Frontend source lives in src/; after editing, run `npm install && npm run build` in this directory.
-//
-// The app is the site: it serves both static assets and the API itself. The three API
-// routes were ported over from wandesk-skill's host capabilities, now wired to this app's
-// own bindings — the frontend didn't change a single line.
+// Backend of this app: a Worker serving its own API and static assets. Frontend source lives in src/;
+// after editing, run `npm install && npm run build` in this directory.
 const SCHEMA = "CREATE TABLE IF NOT EXISTS app_aircraft_scores (\n  id         INTEGER PRIMARY KEY AUTOINCREMENT,\n  score      INTEGER NOT NULL,\n  wave       INTEGER NOT NULL,\n  created_at TEXT NOT NULL DEFAULT (datetime('now'))\n);\n";
 
 let ready = false;
@@ -48,7 +44,7 @@ export default {
         if (schema) {
           try { parsed = JSON.parse(String(out.text).trim().replace(/^\`\`\`[a-z]*\n?|\`\`\`$/g, "")); } catch { /* model didn't return valid JSON */ }
         }
-        return json({ ok: true, result: out.text, json: parsed, engine: "wandesk" });
+        return json({ ok: true, result: out.text, json: parsed });
       }
 
       // ── Outbound requests: unrestricted, backend fetches directly ──

@@ -1,9 +1,5 @@
-// Generated once from a template; now plain source — edit freely.
-// Frontend source lives in src/; after editing, run `npm install && npm run build` in this directory.
-//
-// The app is its own site: it serves both static assets and the API. The three API routes are
-// host capabilities carried over from wandesk-skill, now wired to their own bindings — not a
-// single line of the app frontend changed.
+// Backend of this app: a Worker serving its own API and static assets. Frontend source lives in src/;
+// after editing, run `npm install && npm run build` in this directory.
 const SCHEMA = "-- Dusk Racer currently doesn't need persistent data.\n";
 
 let ready = false;
@@ -48,7 +44,7 @@ export default {
         if (schema) {
           try { parsed = JSON.parse(String(out.text).trim().replace(/^\`\`\`[a-z]*\n?|\`\`\`$/g, "")); } catch { /* model didn't return valid JSON */ }
         }
-        return json({ ok: true, result: out.text, json: parsed, engine: "wandesk" });
+        return json({ ok: true, result: out.text, json: parsed });
       }
 
       // ── Outbound network: unrestricted, backend fetches directly ──

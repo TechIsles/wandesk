@@ -7,7 +7,7 @@
 //
 // This file is bundled into ../../server.js by build.mjs. Edit here, then `npm run build`.
 import { marked } from 'marked';
-import { ARTIFACT_TYPES, isArtifactType, isLocale, isThemePreference, type AppSettings, type ArtifactType, type NodeType } from '../shared/types';
+import { isArtifactType, isLocale, isThemePreference, type AppSettings, type ArtifactType, type NodeType } from '../shared/types';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -835,4 +835,3 @@ export default {
     }
   },
 };
-void ARTIFACT_TYPES;

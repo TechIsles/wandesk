@@ -1,7 +1,7 @@
 // Reader — GM persona, presets, genre detection, turn parsing, recap assembly (pure data / pure functions).
 import type { Genre, Page, Preset, Turn } from './types';
 
-// Engine game-master persona (sent as system only at story start; continuation relies on native session memory)
+// Game-master persona, sent as the system prompt on every turn
 export const GM = `You are a top-tier interactive-fiction Game Master, generating a second-person interactive story for the player in real time.
 
 Narrative requirements:
@@ -45,7 +45,7 @@ export const PRESETS: Preset[] = [
 // Three font-size steps (px)
 export const FONT_SIZES = [15, 17, 19];
 
-// JSON schema: Codex follows this via outputSchema; Claude ignores it, and we still parse it out of the text.
+// JSON schema for one turn; the object is also parsed out of the reply text in case the model wraps it
 export const TURN_SCHEMA = {
   type: 'object',
   properties: {
@@ -79,7 +79,7 @@ export function detectGenre(premise: string): Genre {
   return best;
 }
 
-// Robustly pull a JSON object out of text that may be wrapped in prose/code fences (Claude returns plain text, doesn't fill `json`).
+// Robustly pull a JSON object out of text that may be wrapped in prose or code fences
 function parseTurn(raw: string): Turn | null {
   if (!raw) return null;
   let text = raw.trim();
@@ -98,7 +98,7 @@ function parseTurn(raw: string): Turn | null {
   } catch { return null; }
 }
 
-// Pull one page out of an agent response: prefer structured json (Codex), otherwise parse the result text (Claude).
+// Pull one page out of an agent response: prefer structured json, otherwise parse the result text
 export function extractTurn(r: { ok: boolean; json?: unknown; result?: string }): Turn | null {
   if (!r.ok) return null;
   if (r.json && typeof r.json === 'object') {

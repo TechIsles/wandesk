@@ -71,9 +71,7 @@ const TO_WANDESK: Record<string, string> = { responsesUrl: "apiUrl", instruction
 const rename = (obj: Record<string, string>, map: Record<string, string>) =>
   Object.fromEntries(Object.entries(obj).map(([k, v]) => [map[k] || k, v]));
 
-// Apps can read this table via env.AI.fetch("/api/settings") —— the key doesn't need to actually go out.
-// Same approach as the shell's settings panel: mask it to a placeholder on read, and treat the
-// placeholder coming back unchanged on write as "not changed".
+// The outward-facing API layer only ever sees a masked key; the gateway key never leaves the kernel.
 const MASK = "********";
 const maskKey = (s: Record<string, string>) => {
   const { gatewayKey: _gatewayKey, ...rest } = s; // the gateway key never leaves the kernel
@@ -97,15 +95,6 @@ export const convApi = () => {
   const bridged = {
     ...store,
     getSettings: () => rename(effectiveSettings(), TO_AGENT),
-    setSettings: (values: Record<string, string>) => {
-      const patch = rename({ ...values }, TO_WANDESK);
-      if (patch.apiKey === MASK) delete patch.apiKey; // placeholder coming back unchanged = not changed
-      delete patch.gatewayKey; delete patch.gatewayUrl; delete patch.gatewayModel; // only sign-in writes these
-      // Editing the connection from an app means "use my own endpoint"
-      if (["apiUrl", "apiKey", "model", "driver"].some((k) => k in patch)) patch.source = "custom";
-      writeSettings(patch);
-      return rename(effectiveSettings(), TO_AGENT);
-    },
   };
 
   // The run loop needs the real key; the outward-facing API layer gets the masked one. Same
@@ -113,7 +102,6 @@ export const convApi = () => {
   const forApi = {
     ...bridged,
     getSettings: () => maskKey(bridged.getSettings()),
-    setSettings: (values: Record<string, string>) => maskKey(bridged.setSettings(values)),
   };
 
   // When running the loop, append "installed apps" and the language note after instructions ——

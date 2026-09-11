@@ -7,7 +7,6 @@ export const KERNEL_PORT = Number(process.env.WANDESK_PORT || 9600);
 export const WANDESK_SITE = String(process.env.WANDESK_SITE || "https://wandesk.ai").replace(/\/+$/, "");
 
 export const AGENT_LIMITS = {
-  maxRounds: 32,
   errorMaxChars: 4000,
   bash: {
     executable: WINDOWS ? "cmd.exe" : "/bin/bash",

@@ -287,7 +287,7 @@ export function Desktop() {
   }
 
   function onMenu(key: string) {
-    if (key === "assistant") openById("chat");
+    if (key === "assistant") openById("assistant");
     else if (key === "refresh") void reload();
     else if (key === "wallpaper") openById("__wallpaper");
     else if (key === "settings") openById("__settings");
@@ -399,7 +399,7 @@ export function Desktop() {
           ))}
         </div>
         {/* Who's calling AI — a status indicator owned by the shell, not an app. Apps calling env.AI must include a summary, exactly so this is visible */}
-        <button className="tb-assistant" onClick={() => openById("chat")} title={t("taskbar.assistant")}>✦</button>
+        <button className="tb-assistant" onClick={() => openById("assistant")} title={t("taskbar.assistant")}>✦</button>
       </div>
 
       {startOpen && (

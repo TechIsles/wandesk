@@ -1,9 +1,5 @@
-// Generated once from a template; now plain source — edit freely.
-// Frontend source lives in src/; after editing, run `npm install && npm run build` in this directory.
-//
-// The app is its own website: it answers both static assets and its API. The three API
-// routes were moved over from the wandesk-skill host capabilities, now wired to this app's
-// own bindings — the app frontend wasn't changed at all.
+// Backend of this app: a Worker serving its own API and static assets. Frontend source lives in src/;
+// after editing, run `npm install && npm run build` in this directory.
 const SCHEMA = "-- Weather · data model\n-- No per-app backend: the frontend reads/writes this table through the shared\n-- db capability, landing idempotently in database/apps/weather.db via IF NOT EXISTS.\n--\n-- The user's saved cities. One row per city (from Open-Meteo geocoding).\n-- is_default = 1 marks the city shown by default on open (at most one row).\n-- sort controls the order in the switcher; smaller sorts first.\nCREATE TABLE IF NOT EXISTS app_weather_cities (\n  id         INTEGER PRIMARY KEY AUTOINCREMENT,\n  name       TEXT NOT NULL DEFAULT '',          -- display name (includes region/country to disambiguate same-name cities)\n  lat        REAL NOT NULL,                      -- latitude\n  lon        REAL NOT NULL,                      -- longitude\n  is_default INTEGER NOT NULL DEFAULT 0,         -- 1 = default city (at most one)\n  sort       INTEGER NOT NULL DEFAULT 0,         -- list order, smaller sorts first\n  created_at TEXT NOT NULL DEFAULT (datetime('now'))\n);\n\nCREATE INDEX IF NOT EXISTS app_weather_idx_cities_sort ON app_weather_cities (sort ASC, id ASC);\n";
 
 let ready = false;
@@ -48,7 +44,7 @@ export default {
         if (schema) {
           try { parsed = JSON.parse(String(out.text).trim().replace(/^\`\`\`[a-z]*\n?|\`\`\`$/g, "")); } catch { /* model didn't return valid JSON */ }
         }
-        return json({ ok: true, result: out.text, json: parsed, engine: "wandesk" });
+        return json({ ok: true, result: out.text, json: parsed });
       }
 
       // ── outbound network: no restrictions, backend fetches directly ──

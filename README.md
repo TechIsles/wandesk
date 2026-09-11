@@ -81,7 +81,7 @@ Apps live at `http://<token>.localhost:<port>/` — at the root of their own sit
 
 ## No native apps
 
-Everything on the desktop is an app, **including the assistant and the file browser**. They get the same bindings as the apps you make, run in the same workerd, and keep their data in their own database (`apps/<id>/data.db` opens with `sqlite3`).
+Everything on the desktop is an app, **including the assistant, the file browser, the task monitor and Ramify**. They get the same bindings as the apps you make, run in the same workerd, and keep their data in their own database (`apps/<id>/data.db` opens with `sqlite3`).
 
 The only things in the shell that are not apps are Settings and Personalize — they configure the framework itself. Configuring the framework belongs to the shell; doing work is always an app.
 

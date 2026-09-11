@@ -1,7 +1,0 @@
-{
-  "id": "chat",
-  "name": "Assistant",
-  "icon": "💬",
-  "description": "Talk to the agent inside the kernel. It has bash / read / write / edit, so it can actually get things done.",
-  "mounts": { "window": "/" }
-}

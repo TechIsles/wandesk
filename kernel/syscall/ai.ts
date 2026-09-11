@@ -16,7 +16,7 @@ import { runAgent } from "../agent/index.js";
 import { EVENTS } from "../ai/events.js";
 import { AGENT_LIMITS } from "../config.js";
 import { modelConfig, agentLimits } from "../data/settings.js";
-import { appsBlock, languageBlock } from "../apps/scan.js";
+import { appsBlock, languageBlock, listApps } from "../apps/scan.js";
 import { startTask, finishTask, listTasks, getTask, runningCount, type TaskKind } from "../data/tasks.js";
 import { appendMessage } from "../data/messages.js";
 import { workspace } from "../paths.js";
@@ -73,7 +73,9 @@ const track = (appId: string, kind: TaskKind, req: AiRequest, instructions: stri
 
 // ── tasks: the record of who called the AI, for the Tasks app ─────────────────
 export const aiTasks = (_appId: string, opts: { limit?: number; id?: number } = {}) =>
-  opts.id ? { item: getTask(Number(opts.id)) } : { items: listTasks(Number(opts.limit) || 100), running: runningCount() };
+  opts.id
+    ? { item: getTask(Number(opts.id)) }
+    : { items: listTasks(Number(opts.limit) || 100), running: runningCount(), apps: Object.fromEntries(listApps().map((a) => [a.id, a.name])) };
 
 // ── ask: one-shot completion ────────────────────────────────────────────
 export const aiAsk = async (appId: string, req: AiRequest) => {

@@ -1,5 +1,5 @@
 // Wallpaper generation: a feature of the shell itself, going through the same env.AI path (recorded under
-// appId __shell, visible in the task list).
+// appId "shell", visible in the task list).
 //
 // It lives in the kernel instead of being its own app because it configures the shell's own appearance —— it
 // belongs on the "configuration framework" side.
@@ -17,7 +17,7 @@ export const handleWallpaperApi = async (req: IncomingMessage, res: ServerRespon
   const desc = String(body.prompt || "").trim();
   if (!desc) return json(res, 200, { ok: false, error: "Description cannot be empty" });
 
-  const out = await aiAsk("__shell", {
+  const out = await aiAsk("shell", {
     summary: `Generate wallpaper: ${desc.slice(0, 20)}`,
     system: SYSTEM,
     prompt: `Wallpaper description: ${desc}`,

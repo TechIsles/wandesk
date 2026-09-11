@@ -1,4 +1,4 @@
-// Outbound network access. **Changed for v2** — the backend fetch()es directly now, no host proxy needed (full capability).
+// Outbound HTTP through the app backend (a plain fetch there).
 export type HttpResult = { ok: boolean; status?: number; body?: string; error?: string };
 
 export async function proxy(

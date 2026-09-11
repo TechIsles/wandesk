@@ -3,7 +3,6 @@ export type BookRow = {
   id: number;
   title: string;
   premise: string;
-  conversation_id: string | null;
   status: string;
   updated_at: string;
 };

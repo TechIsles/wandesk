@@ -15,7 +15,6 @@ export function useReader(appId: string) {
   const [book, setBook] = useState<BookRow | null>(null);
   const [pages, setPages] = useState<Page[]>([]);
   const [choices, setChoices] = useState<string[]>([]);
-  const [convId, setConvId] = useState<string | null>(null); // live session: if present, continue natively
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -44,18 +43,10 @@ export function useReader(appId: string) {
     if (view === 'reader') lastPageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [pages.length, view]);
 
-  // ── Run one engine turn: prefer native continuation; if the session is invalid, rebuild a new one from pages ──
-  async function runTurn(prompt: string, useConv: string | null, recap: string | null): Promise<{ turn: Turn; conversationId: string | null } | null> {
-    let r = useConv
-      ? await agent(appId, prompt, { conversationId: useConv, schema: TURN_SCHEMA })
-      : await agent(appId, recap ? `${recap}\n\n${prompt}` : prompt, { system: GM, schema: TURN_SCHEMA });
-    let turn = extractTurn(r);
-    if (!turn && useConv) { // session invalid / parse failed → rebuild a fresh session from the recap and try once more
-      r = await agent(appId, recap ? `${recap}\n\n${prompt}` : prompt, { system: GM, schema: TURN_SCHEMA });
-      turn = extractTurn(r);
-    }
-    if (!turn) return null;
-    return { turn, conversationId: r.conversationId ?? useConv ?? null };
+  // ── Run one turn: the game-master persona as system prompt, the story so far as a recap ──
+  async function runTurn(prompt: string, recap: string | null): Promise<Turn | null> {
+    const r = await agent(appId, recap ? `${recap}\n\n${prompt}` : prompt, { system: GM, schema: TURN_SCHEMA });
+    return extractTurn(r);
   }
 
   // ── Start a new book (both preset books and custom setups go through here). forcedTitle: presets use a fixed title. ──
@@ -63,23 +54,21 @@ export function useReader(appId: string) {
     const text = p.trim();
     if (!text || busy) return;
     setError(''); setBusy(true); setComposing(false); setView('reader');
-    setBook(null); setPages([]); setChoices([]); setConvId(null); setPremise(text);
+    setBook(null); setPages([]); setChoices([]); setPremise(text);
     setFontStep(1); setTheme('day');
     idxOfNew.current = 0;
 
     const prompt = `Begin an interactive story from the setup below. Write a gripping opening page and offer 2–4 choices.\nSetup: ${text}`;
-    const out = await runTurn(prompt, null, null);
-    if (!out) { setError('The story failed to start. Please try again.'); setBusy(false); setView('shelf'); return; }
-    const { turn, conversationId } = out;
+    const turn = await runTurn(prompt, null);
+    if (!turn) { setError('The story failed to start. Please try again.'); setBusy(false); setView('shelf'); return; }
     const title = (forcedTitle || turn.title || 'Untitled').slice(0, 24);
     const status = turn.choices.length ? 'ongoing' : 'ended';
 
-    const bookId = await data.insertBook(appId, title, text, conversationId, status);
+    const bookId = await data.insertBook(appId, title, text, status);
     await data.insertPage(appId, bookId, 0, turn.narrative, '', turn.choices); // store the opening page along with its pending choices
 
-    setBook({ id: bookId, title, premise: text, conversation_id: conversationId, status, updated_at: '' });
+    setBook({ id: bookId, title, premise: text, status, updated_at: '' });
     setPages([{ idx: 0, narrative: turn.narrative, chosen: '', choices: turn.choices }]);
-    setConvId(conversationId);
     setChoices(turn.choices);
     setBusy(false);
     loadShelf();
@@ -101,8 +90,8 @@ export function useReader(appId: string) {
     const recap = buildRecap(book.premise || premise, pagesWithChoice);
     const prompt = `The player's chosen action: ${act}\n\nContinue from here — write the page that follows, and offer 2–4 new choices (or end the story if it has reached a strong conclusion).`;
 
-    const out = await runTurn(prompt, convId, recap);
-    if (!out) {
+    const turn = await runTurn(prompt, recap);
+    if (!turn) {
       // failure: roll the just-made choice back to unselected, restoring the original pending choices so the player can retry
       setError('This step failed to continue. Please retry, or try a different action.');
       setPages((s) => s.map((x, i) => (i === s.length - 1 ? { ...x, chosen: '', choices: cur.choices } : x)));
@@ -111,26 +100,24 @@ export function useReader(appId: string) {
       setBusy(false);
       return;
     }
-    const { turn, conversationId } = out;
     const nextIdx = cur.idx + 1;
     const ended = turn.choices.length === 0;
 
     await data.insertPage(appId, book.id, nextIdx, turn.narrative, '', turn.choices); // store the new page along with its pending choices
-    await data.setBookState(appId, book.id, conversationId, ended ? 'ended' : 'ongoing');
+    await data.setBookState(appId, book.id, ended ? 'ended' : 'ongoing');
 
     idxOfNew.current = nextIdx;
     setPages((s) => [...s, { idx: nextIdx, narrative: turn.narrative, chosen: '', choices: turn.choices }]);
-    setConvId(conversationId);
-    setBook((st) => (st ? { ...st, conversation_id: conversationId, status: ended ? 'ended' : 'ongoing' } : st));
+    setBook((st) => (st ? { ...st, status: ended ? 'ended' : 'ongoing' } : st));
     setChoices(turn.choices);
     setBusy(false);
     loadShelf();
   }
 
-  // ── Reopen an existing book: load the whole thing + restore the session + restore any pending choices at the decision point ──
+  // ── Reopen an existing book: load its pages and restore any pending choices at the decision point ──
   async function openBook(s: BookRow) {
     setError(''); setComposing(false); setView('reader'); setBusy(false); setCustom('');
-    setBook(s); setPremise(s.premise); setConvId(s.conversation_id); setPages([]); setChoices([]);
+    setBook(s); setPremise(s.premise); setPages([]); setChoices([]);
     setFontStep(1); setTheme('day');
     idxOfNew.current = -1; // loading an old book should not trigger the "freshly landed" animation
 
@@ -147,14 +134,8 @@ export function useReader(appId: string) {
     setError(''); setBusy(true);
     const recap = buildRecap(book.premise || premise, pages);
     const prompt = 'Continue from here, and based on the current situation offer 2–4 viable choices (hold the camera steady on this moment in a sentence or two — do not jump into new plot).';
-    const out = await runTurn(prompt, convId, recap);
-    if (!out) { setError('Failed to retrieve choices. Please try again.'); setBusy(false); return; }
-    const { turn, conversationId } = out;
-    setConvId(conversationId);
-    if (conversationId && conversationId !== book.conversation_id) {
-      await data.setBookConv(appId, book.id, conversationId);
-      setBook((st) => (st ? { ...st, conversation_id: conversationId } : st));
-    }
+    const turn = await runTurn(prompt, recap);
+    if (!turn) { setError('Failed to retrieve choices. Please try again.'); setBusy(false); return; }
     const last = pages[pages.length - 1];
     if (last) {
       setPages((s) => s.map((x, i) => (i === s.length - 1 ? { ...x, choices: turn.choices } : x)));

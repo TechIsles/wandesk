@@ -136,6 +136,8 @@ never has to grow a single domain concept; it never learns what a "bookmark" is.
 | `env.AI.ask({ summary, prompt, system?, data? })` | a one-shot completion, no tools. Get a title, polish a paragraph |
 | `env.AI.run({ summary, prompt })` | a full agent turn with `bash` / `read` / `write` / `edit`, returns final text |
 | `env.AI.stream({ summary, prompt })` | same as `run`, but returns a `Response` — **the app just `return`s it directly**, and SSE flows straight through to its own frontend |
+| `env.AI.fetch(req)` | forwards a whole request to the kernel's conversation API (conversations / messages / runs / SSE) — this is how the assistant app exists |
+| `env.AI.tasks({ limit } \| { id })` | read-only: the task list, or one task with its thread of messages — this is how the Tasks app exists |
 
 - **`summary` is required** — a one-line description that lands in the task list,
   so the user can see in the taskbar which app is burning tokens;
@@ -161,7 +163,7 @@ if (url.pathname === "/api/send") {
 | `env.DB` | D1 interface: `prepare(sql).bind(…).all() / .first() / .run() / .raw()`, `exec(createTableScript)`, `batch([…])` (a single transaction) |
 | `env.ASSETS` | `fetch(req)` reads from `public/`; falls back to `index.html` (SPA) on a miss that doesn't look like a filename |
 | `env.PROC` | managed subprocesses: `spawn(cmd, args, cwd)` / `exec(…)` / `list()` / `log(id, tail)` / `kill(id)` |
-| `env.FS` | the user's real files (relative to the workspace root): `list` / `read` / `readBase64` / `write` / `mkdir` / `delete` |
+| `env.FS` | the user's real files (relative to the workspace root): `list` / `read` / `readBase64` / `write` / `writeBase64` / `mkdir` / `delete` |
 | `env.UI` | the shell: `toast(text)` / `openApp(id, route)` / `openExternal(url)` |
 | `env.log(...)` | server-side logs flow back to the kernel console — so the AI can see what it's debugging in its own backend |
 

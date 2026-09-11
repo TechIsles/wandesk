@@ -1,9 +1,5 @@
-// Generated once from a template; now plain source — edit freely.
-// Frontend source lives in src/; after editing, run `npm install && npm run build` in this directory.
-//
-// The app is its own site: it serves both static assets and the API. The three API
-// routes are the host capabilities ported over from wandesk-skill, now wired to this
-// app's own bindings — the app frontend didn't change a single line.
+// Backend of this app: a Worker serving its own API and static assets. Frontend source lives in src/;
+// after editing, run `npm install && npm run build` in this directory.
 const SCHEMA = "-- Player's chip stack — single row, persisted across sessions. Start at 1000.\nCREATE TABLE IF NOT EXISTS app_poker_wallet (\n  id    INTEGER PRIMARY KEY CHECK (id = 1),\n  chips INTEGER NOT NULL DEFAULT 1000\n);\nINSERT OR IGNORE INTO app_poker_wallet (id, chips) VALUES (1, 1000);\n\n-- Lifetime tally — one row per finished hand, for the win/loss header.\nCREATE TABLE IF NOT EXISTS app_poker_stats (\n  id         INTEGER PRIMARY KEY AUTOINCREMENT,\n  result     TEXT NOT NULL,                       -- 'win' | 'lose'\n  delta      INTEGER NOT NULL DEFAULT 0,          -- chips won (+) or lost (-) this hand\n  created_at TEXT NOT NULL DEFAULT (datetime('now'))\n);\n";
 
 let ready = false;
@@ -48,7 +44,7 @@ export default {
         if (schema) {
           try { parsed = JSON.parse(String(out.text).trim().replace(/^\`\`\`[a-z]*\n?|\`\`\`$/g, "")); } catch { /* model didn't return valid JSON */ }
         }
-        return json({ ok: true, result: out.text, json: parsed, engine: "wandesk" });
+        return json({ ok: true, result: out.text, json: parsed });
       }
 
       // ── outbound: full access, the backend fetches directly ──

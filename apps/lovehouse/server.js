@@ -1,10 +1,5 @@
-// Generated once from a template; now plain source — edit freely.
-// next build.
-// Frontend source lives in src/; after editing, run `npm install && npm run build` in this directory.
-//
-// The app is its own website: it answers both static assets and API requests itself. The
-// three APIs are host capabilities ported over from wandesk-skill, now wired to this app's
-// own bindings — the app frontend was left untouched.
+// Backend of this app: a Worker serving its own API and static assets. Frontend source lives in src/;
+// after editing, run `npm install && npm run build` in this directory.
 const SCHEMA = "-- Conversation history (the single source of truth: rendering bubbles and rebuilding context each turn both come from here)\nCREATE TABLE IF NOT EXISTS app_lovehouse_messages (\n  id         INTEGER PRIMARY KEY AUTOINCREMENT,\n  role       TEXT NOT NULL,            -- 'user' | 'bot'\n  content    TEXT NOT NULL DEFAULT '',\n  created_at TEXT NOT NULL DEFAULT (datetime('now'))\n);\n\n-- Long-term memory (high-signal, deduplicated, capped; fed back to her every turn)\nCREATE TABLE IF NOT EXISTS app_lovehouse_memories (\n  id         INTEGER PRIMARY KEY AUTOINCREMENT,\n  content    TEXT NOT NULL,\n  created_at TEXT NOT NULL DEFAULT (datetime('now'))\n);\n\n-- Relationship state (key-value: affection level, current mood). Updated and fed back to her every turn.\nCREATE TABLE IF NOT EXISTS app_lovehouse_state (\n  key   TEXT PRIMARY KEY,\n  value TEXT NOT NULL DEFAULT ''\n);\n\n-- Her moments (the right-hand feed panel): 'posts' the AI shares as Su Wan, likeable and commentable.\n-- comments is a JSON array [{who:'me'|'Su Wan', text}]; likes is the base like count, liked records whether you've liked it.\nCREATE TABLE IF NOT EXISTS app_lovehouse_moments (\n  id         INTEGER PRIMARY KEY AUTOINCREMENT,\n  emoji      TEXT NOT NULL DEFAULT '',\n  content    TEXT NOT NULL,\n  likes      INTEGER NOT NULL DEFAULT 1,\n  liked      INTEGER NOT NULL DEFAULT 0,\n  comments   TEXT NOT NULL DEFAULT '[]',\n  created_at TEXT NOT NULL DEFAULT (datetime('now'))\n);\n";
 
 let ready = false;
@@ -49,7 +44,7 @@ export default {
         if (schema) {
           try { parsed = JSON.parse(String(out.text).trim().replace(/^\`\`\`[a-z]*\n?|\`\`\`$/g, "")); } catch { /* model didn't return valid JSON */ }
         }
-        return json({ ok: true, result: out.text, json: parsed, engine: "wandesk" });
+        return json({ ok: true, result: out.text, json: parsed });
       }
 
       // ── outbound: unrestricted, backend fetches directly ──
