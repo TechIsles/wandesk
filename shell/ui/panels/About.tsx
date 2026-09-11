@@ -2,7 +2,7 @@ import { t } from "../lib/i18n";
 import "./Settings.css";
 
 // About — a shell panel, not an app. Facts about the product and where to find it.
-const VERSION = "2.0.0";
+const VERSION = "2.1.0";
 const LINKS = [
   { key: "about.website", url: "https://wandesk.ai", icon: "🌐" },
   { key: "about.source", url: "https://github.com/Sider-ai/wandesk", icon: "⌥" },

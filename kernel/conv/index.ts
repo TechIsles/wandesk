@@ -118,6 +118,6 @@ export const convApi = () => {
   const channel = createChannel();
   const files = createFiles(config);
   const runs = createRuns({ config, store: forRuns, files, broadcast: channel.broadcast });
-  handler = createApi({ config, store: forApi, runs, files, channel, meta: { version: "2.0.0" } });
+  handler = createApi({ config, store: forApi, runs, files, channel, meta: { version: "2.1.0" } });
   return handler!;
 };
